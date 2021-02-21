@@ -1,0 +1,1 @@
+void fenc_test();
