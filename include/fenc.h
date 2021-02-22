@@ -1,6 +1,8 @@
 #define VERSION_STRING 1.0
 
-char* curIn;
-char* curOut;
+int curIn;
+int curOut;
 
 void getDebugValue(char* debugString);
+int readIn();
+int writeOut();

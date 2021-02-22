@@ -10,6 +10,10 @@ int d04 = 0;
 int d16 = 0;
 int d32 = 0;
 
+/* 
+ * open() -> read() -> open() -> write() -> close() (twice)
+ */
+
 void getDebugValue(char* debugString){
     int numberHolder = 0;
     int count = 0;
@@ -25,3 +29,12 @@ void getDebugValue(char* debugString){
     d32 = numberHolder & 32;
     printf("%i, %i, %i, %i, %i, %i \n", d00, d01, d02, d04, d16, d32);
 }
+
+int readIn(){
+    return 1;
+}
+
+int writeOut(){
+    return 1;
+}
+

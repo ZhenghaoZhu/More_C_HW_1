@@ -3,6 +3,9 @@
 #include <getopt.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include "fenc.h"
 
 /* 
@@ -28,10 +31,11 @@
 int main(int argc, char *argv[], char *envp[]) {
     int flags, opt, fileCount;
     char* password  = NULL;
+    char* testText = "NOWTHISIS";
     flags = 0;
     fileCount = 0;
-    curIn = NULL;
-    curOut = NULL;
+    curIn = 0;
+    curOut = 0;
     char* debugString = NULL;
     while ((opt = getopt(argc, argv, ":devhp:D:")) != -1) {
         switch (opt) {
@@ -43,19 +47,24 @@ int main(int argc, char *argv[], char *envp[]) {
                 break;
             case 'v': 
                 flags += 300;
-                printf("fenc version: %.1f \n", VERSION_STRING);
+                fprintf(stdout, "fenc version: %.1f \n", VERSION_STRING);
                 break;
             case 'h':
-                fprintf(stderr, "Usage: %s [-devh] [-D DBGVAL] [-p PASSFILE] infile outfile\n", argv[0]);
+                fprintf(stderr, "(1) Usage: %s [-devh] [-D DBGVAL] [-p PASSFILE] infile outfile\n", argv[0]);
                 exit(EXIT_FAILURE);
             case 'p':
                 flags += 5000;
+                if(strcmp(optarg, "-") == 0){
+                    curIn = 0;
+                    fileCount++;
+                    password = getpass("(1) Please provide a password for encryption/decryption: ");
+                }
                 break;
             case 'D':
                 flags += 600000;
                 debugString = optarg;
                 if((debugString[strlen(debugString) - 1] != 'd')){
-                    fprintf(stderr, "Usage: %s [-devh] [-D DBGVAL] [-p PASSFILE] infile outfile\n", argv[0]);
+                    fprintf(stderr, "(2) Usage: %s [-devh] [-D DBGVAL] [-p PASSFILE] infile outfile\n", argv[0]);
                     exit(EXIT_FAILURE);
                 }
                 getDebugValue(debugString);
@@ -64,52 +73,58 @@ int main(int argc, char *argv[], char *envp[]) {
                 switch (optopt)
                 {
                 case 'p':
-                    printf("option -%c with no file provided\n", optopt);
-                    password = getpass("Please provide a password for encryption/decryption: ");
-                    printf("Password given: %s \n", password);
+                    password = getpass("(2) Please provide a password for encryption/decryption: ");
+                    fprintf(stdout, "Password given: %s \n", password);
                     break;
                 default:
-                    fprintf(stderr, "Usage: %s [-devh] [-D DBGVAL] [-p PASSFILE] infile outfile\n", argv[0]);
+                    fprintf(stderr, "(3) Usage: %s [-devh] [-D DBGVAL] [-p PASSFILE] infile outfile\n", argv[0]);
                     exit(EXIT_FAILURE);
                 }
                 break;
             default:
-                fprintf(stderr, "Usage: %s [-devh] [-D DBGVAL] [-p PASSFILE] infile outfile\n", argv[0]);
+                fprintf(stderr, "(4) Usage: %s [-devh] [-D DBGVAL] [-p PASSFILE] infile outfile\n", argv[0]);
                 exit(EXIT_FAILURE);
         }
     }
 
-    while(optind < argc){
+    fprintf(stderr, "optind : %i \n", optind);
+    if(optind >= argc){
+        fprintf(stderr, "No infile/outfile provided. Please try again. \n");
+        fprintf(stderr, "Usage: %s [-devh] [-D DBGVAL] [-p PASSFILE] infile outfile\n", argv[0]);
+        exit(EXIT_FAILURE);
+    }
+
+    while(optind < argc && fileCount < 2){
         if(fileCount == 0){
-            if(strcmp(argv[optind], "-") == 0){
-                curIn = argv[optind];
+            if(strcmp(argv[optind], "-") != 0){
+                curIn = open(argv[optind], O_RDONLY);
             }
             else{
-                // FIXME  Should be a FILE*
-                curIn = "stdin";
+                curIn = 0;
             }
         }
         else if(fileCount == 1){
-            if(strcmp(argv[optind], "-") == 0){
-                curOut = argv[optind];
+            if(strcmp(argv[optind], "-") != 0){
+                curOut = open(argv[optind], O_WRONLY);
             }
             else{
-                // FIXME  Should be a FILE*
-                curOut = "stdout";
+                curOut = 1;
             }
             break;
         }      
-        printf("extra arguments: %s\n", argv[optind]);
+        fprintf(stderr, "extra arguments: %s\n", argv[optind]);
         fileCount++;
         optind++;  
     }
 
-    if(curIn == NULL){
-        //  TODO  What to set as curIn
-        // curIn = stdin;
+    int writeRet = write(curOut, testText, 9);
+    fprintf(stderr, "\nwriteRet : %i with curOut: %i \n", writeRet, curOut);
+    if(curIn != 0){
+        close(curIn);
     }
-    if(curOut == NULL){
-        //  TODO  What to set as curIn
-        // curOut = stdout;
+    if(curOut != 1){
+        close(curOut);
     }
+
+    //  NOTE  If curIn or curOut are equal to zero, use stdin and stdout respectively. 
 }
