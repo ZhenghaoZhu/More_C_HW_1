@@ -29,7 +29,7 @@ EXEC := fenc
 
 .PHONY: clean all setup debug
 
-all: setup $(BIND)/$(EXEC) $(BIND)/$(TEST_EXEC)
+all: setup $(EXEC) 
 
 debug: CFLAGS += $(DFLAGS) $(PRINT_STAMENTS) $(COLORF)
 debug: all
@@ -40,11 +40,8 @@ $(BIND):
 $(BLDD):
 		mkdir -p $(BLDD)
 
-$(BIND)/$(EXEC): $(ALL_OBJF)
+$(EXEC): $(ALL_OBJF)
 		$(CC) $^ -o $@ $(LIBS)
-
-$(BIND)/$(TEST_EXEC): $(ALL_FUNCF) $(TEST_SRC)
-		$(CC) $(CFLAGS) $(INC) $(ALL_FUNCF) $(TEST_SRC) $(LIBS) -o $@
 
 $(BLDD)/%.o: $(SRCD)/%.c
 		$(CC) $(CFLAGS) $(INC) -c -o $@ $<

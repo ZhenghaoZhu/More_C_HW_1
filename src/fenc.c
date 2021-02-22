@@ -1,8 +1,27 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "fenc.h"
 
-void fenc_test(){
-    printf("PRINTING FROM FENC \n");
-    return;
+int d00 = 0;
+int d01 = 0;
+int d02 = 0;
+int d04 = 0;
+int d16 = 0;
+int d32 = 0;
+
+void getDebugValue(char* debugString){
+    int numberHolder = 0;
+    int count = 0;
+    for(int i = 0; i < strlen(debugString) - 1; i++){
+        numberHolder *= 10;
+        numberHolder += (int)(debugString[i] - 48);
+    }
+    d00 = numberHolder & 0;
+    d01 = numberHolder & 1;
+    d02 = numberHolder & 2;
+    d04 = numberHolder & 4;
+    d16 = numberHolder & 16;
+    d32 = numberHolder & 32;
+    printf("%i, %i, %i, %i, %i, %i \n", d00, d01, d02, d04, d16, d32);
 }
