@@ -4,9 +4,13 @@
 int fdIn;
 int fdOut;
 
-void getDebugValue(char* debugString);
+int getDebugValue(char* debugString);
 int getFilePassword(char* curFile);
 int copyPassword(char* password);
 int readIn();
 int writeOut();
 int closeAll();
+
+void debugFunctionCallsArgs(char* curFunction, char* curArgs);
+void debugLibCallsArgs(char* curFunction, char* curArgs);
+void debugSysCallsArgs(char* curFunction, char* curArgs);

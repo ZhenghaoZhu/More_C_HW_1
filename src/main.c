@@ -5,12 +5,16 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/statfs.h> 
 #include <fcntl.h>
 #include <errno.h>
 #include "fenc.h"
 
-
+//+++++++++++++++++++++++++++++++++//
 void exitWithFailure();
+void checkStatMode(mode_t statMode);
+//+++++++++++++++++++++++++++++++++//
+
 /* 
  * -d : Decrypt infile into outfile  TODO 
  * -e : Encrypt encrypt infile into outfile  TODO 
@@ -57,7 +61,9 @@ int main(int argc, char *argv[], char *envp[]) {
                 exit(EXIT_FAILURE);
             case 'p':
                 opt_p += 1;
-                getFilePassword(optarg);
+                if(getFilePassword(optarg) == 1){
+                    exitWithFailure();
+                }
                 break;
             case 'D':
                 opt_D += 1;
@@ -65,7 +71,9 @@ int main(int argc, char *argv[], char *envp[]) {
                 if((debugString[strlen(debugString) - 1] != 'd')){
                     exitWithFailure();
                 }
-                getDebugValue(debugString);
+                if(getDebugValue(debugString) == 1){
+                    exitWithFailure();
+                }
                 break;
             default:
                 exitWithFailure();
@@ -101,21 +109,25 @@ int main(int argc, char *argv[], char *envp[]) {
     if(opt_p == 0){
         password = getpass("Please provide a password to encrypt/decrypt: ");
         if(copyPassword(password) != 1){
-            perror("copyPassword");
-            closeAll();
-            exit(EXIT_FAILURE);
+            exitWithFailure();
         }
         free(password);
     }
 
+    struct stat fileStat;
     while(optind < argc){
         if(fileCount == 0){
             if(strcmp(argv[optind], "-") != 0){
-                if(access(argv[optind], R_OK) == 0){
+                if(stat(argv[optind], &fileStat) == -1){
+                    perror("stat");
+                    exitWithFailure();
+                }
+                checkStatMode(fileStat.st_mode);
+                if((access(argv[optind], F_OK) != -1) && (access(argv[optind], R_OK) == 0)){
                     fdIn = open(argv[optind], O_RDONLY);
                 }
                 else {
-                    perror(strerror(errno));
+                    perror("access (Read)");
                     exitWithFailure();
                 }
             }
@@ -125,13 +137,19 @@ int main(int argc, char *argv[], char *envp[]) {
         }
         else if(fileCount == 1){
             if(strcmp(argv[optind], "-") != 0){
-                if(access(argv[optind], W_OK) == 0){
+                if(stat(argv[optind], &fileStat) == -1){
+                    perror("stat");
+                    exitWithFailure();
+                }
+                checkStatMode(fileStat.st_mode);
+                if((access(argv[optind], F_OK) != -1) && (access(argv[optind], W_OK) == 0)){
                     //  TODO  Use mkstemp
                     fdOut = open(argv[optind], O_WRONLY);
                 }
                 else {
                     //  TODO  make one 
-                    fprintf(stderr, "OUTFILE DOESNT EXIST \n");
+                    perror("access (Write)");
+                    exitWithFailure();
                 }
             }
             else {
@@ -145,12 +163,34 @@ int main(int argc, char *argv[], char *envp[]) {
 
     fprintf(stderr, "curIn : %i, curOut: %i \n", fdIn, fdOut);
 
-    closeAll();
+    if(closeAll() == 1){
+        fprintf(stderr, "Usage: ./fenc [-devh] [-D DBGVAL] [-p PASSFILE] infile outfile\n");
+        exit(EXIT_FAILURE);
+    }
 
 }
 
 void exitWithFailure(void){
-    closeAll();
+    if(closeAll() == 1){
+        fprintf(stderr, "Usage: ./fenc [-devh] [-D DBGVAL] [-p PASSFILE] infile outfile\n");
+        exit(EXIT_FAILURE);
+    }
     fprintf(stderr, "Usage: ./fenc [-devh] [-D DBGVAL] [-p PASSFILE] infile outfile\n");
     exit(EXIT_FAILURE);
+}
+
+void checkStatMode(mode_t statMode){
+    if(statMode & S_IFDIR){
+        perror("stat (directory, not file)");
+        exitWithFailure();
+    }
+    if(statMode & S_IFCHR){
+        perror("stat (character device, not file)");
+        exitWithFailure();
+    }
+    if(statMode & S_IFBLK){
+        perror("stat (block device, not file)");
+        exitWithFailure();
+    }
+    return;
 }

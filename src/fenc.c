@@ -21,7 +21,7 @@ char* pwdBuf = NULL;
  * open() -> read() -> open() -> write() -> close() (twice)
  */
 
-void getDebugValue(char* debugString){
+int getDebugValue(char* debugString){
     int numberHolder = 0;
     int count = 0;
     for(int i = 0; i < strlen(debugString) - 1; i++){
@@ -34,7 +34,12 @@ void getDebugValue(char* debugString){
     d04 = numberHolder & 4;
     d16 = numberHolder & 16;
     d32 = numberHolder & 32;
-    printf("%i, %i, %i, %i, %i, %i \n", d00, d01, d02, d04, d16, d32);
+    if((numberHolder > 0) && ((d00 + d01 + d02 + d04 + d16 + d32) == 0)){
+        fprintf(stderr, "Non-valid debug number provided, please try again \n");
+        return 1;
+    }
+    return 0;
+    // printf("%i, %i, %i, %i, %i, %i \n", d00, d01, d02, d04, d16, d32);
 }
 
 int getFilePassword(char* curFile){
@@ -47,6 +52,12 @@ int getFilePassword(char* curFile){
     int pwdLen = 0;
     int readRet = 0;
     int curFD = open(curFile, O_RDONLY);
+
+    if(curFD == -1){
+        perror("open");
+        return 1;
+    }
+
     while((readRet = read(curFD, pwdBuf + pwdLen, PWD_FILE_READ)) > 0){
         pwdLen += readRet;
         if(readRet == PWD_FILE_READ){
@@ -56,42 +67,80 @@ int getFilePassword(char* curFile){
             }
             else {
                 perror("realloc");
-                exit(EXIT_FAILURE);
+                return 1;
             }
         }
     }
+
+    if(readRet == -1){
+        perror("read");
+        return 1;
+    }
+
     pwdBuf[pwdLen] = '\0';
-    return 1;
+    return 0;
 }
 
 int copyPassword(char* password){
     pwdBuf = strdup(password);
     if(pwdBuf == NULL){
-        return 0;
+        fprintf(stderr, "Unable to save password, please try again \n");
+        return 1;
     }
         fprintf(stderr, "Given password : %s \n", pwdBuf);
-    return 1;
+    return 0;
 }
 
 int readIn(){
-    return 1;
+    //  TODO  
+    return 0;
 }
 
 int writeOut(){
-    return 1;
+    //  TODO  
+    return 0;
 }
 
 int closeAll(){
-    if(fdOut >= 0){
-        close(fdIn);
+    if(fdIn >= 0){
+        if(close(fdIn) == -1){
+            perror("close");
+            return 1;
+        }
     }
     if(fdOut >= 0){
-        close(fdOut);
+        if(close(fdOut) == -1){
+            perror("close");
+            return 1;
+        }
     }
     if(pwdBuf != NULL){
         fprintf(stderr, "Password before free: %s \n", pwdBuf);
         free(pwdBuf);
     }
-    return 1;
+    return 0;
+}
+
+
+/************************************************************/
+/*                    DEBUG FUNCTIONS                       */
+/************************************************************/
+
+void debugFunctionCallsArgs(char* curFunction, char* curArgs){
+    if(d01 == 0){
+        return;
+    }
+}
+
+void debugLibCallsArgs(char* curFunction, char* curArgs){
+    if(d02 == 0){
+        return;
+    }
+}
+
+void debugSysCallsArgs(char* curFunction, char* curArgs){
+    if(d04 == 0){
+        return;
+    }
 }
 
