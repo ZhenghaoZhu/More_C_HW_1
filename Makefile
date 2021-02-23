@@ -2,8 +2,8 @@ CC := gcc
 SRCD := src
 TSTD := tests
 BLDD := build
-BIND := bin
 INCD := include
+TFLD := testFiles
 
 MAIN  := $(BLDD)/main.o
 
@@ -34,9 +34,8 @@ all: setup $(EXEC)
 debug: CFLAGS += $(DFLAGS) $(PRINT_STAMENTS) $(COLORF)
 debug: all
 
-setup: $(BIND) $(BLDD)
-$(BIND):
-		mkdir -p $(BIND)
+setup: $(BLDD)
+
 $(BLDD):
 		mkdir -p $(BLDD)
 
@@ -47,7 +46,11 @@ $(BLDD)/%.o: $(SRCD)/%.c
 		$(CC) $(CFLAGS) $(INC) -c -o $@ $<
 
 clean:
-		rm -rf $(BLDD) $(BIND)
+		rm -rf $(BLDD)
+
+wipe:
+		rm $(TFLD)/outFile.txt
+		touch $(TFLD)/outFile.txt
 
 .PRECIOUS: $(BLDD)/*.d
 -include $(BLDD)/*.d

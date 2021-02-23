@@ -6,15 +6,18 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <errno.h>
 #include "fenc.h"
 
+
+void exitWithFailure();
 /* 
  * -d : Decrypt infile into outfile  TODO 
  * -e : Encrypt encrypt infile into outfile  TODO 
  * -v : Print version string of the program  DONE 
  * -h : The program should print a simple usage line on stderr and exit with a non-zero status code  DONE 
- * -p : Supports ARG as the name of a file that contains the password as the first line of the file.
- * -D : Debugging information printed to stdeer based on DBGVAL
+ * -p : Supports ARG as the name of a file that contains the password as the first line of the file  DONE  
+ * -D : Debugging information printed to stdeer based on DBGVAL  TODO 
  * ● Debug value 0x00 (0d): no debug info printed
  * ● Debug value 0x01 (1d): print a message on immediate entry and right before the exit to every function
  *   in your code that you write, including main(), but not library calls you call. Print the name of the function
@@ -29,102 +32,125 @@
  *   0x1 (right before return), 0x2 (right after), and 0x4 (right after).
  */
 int main(int argc, char *argv[], char *envp[]) {
-    int flags, opt, fileCount;
-    char* password  = NULL;
-    char* testText = "NOWTHISIS";
-    flags = 0;
-    fileCount = 0;
-    curIn = 0;
-    curOut = 0;
+    int opt_d = 0, opt_e = 0, opt_v = 0, opt_p = 0, opt_D = 0;
+    int opt, fileCount = 0;
+    char* password = NULL;
+    fdIn = 0;
+    fdOut = 0;
     char* debugString = NULL;
     while ((opt = getopt(argc, argv, ":devhp:D:")) != -1) {
         switch (opt) {
             case 'd':
-                flags += 1;
+                opt_d += 1;
                 break;
             case 'e':
-                flags += 20;
+                opt_e += 1;
                 break;
             case 'v': 
-                flags += 300;
-                fprintf(stdout, "fenc version: %.1f \n", VERSION_STRING);
+                opt_v += 1;
+                if(opt_v == 1){
+                    fprintf(stdout, "fenc version: %.1f \n", VERSION_STRING);
+                }
                 break;
             case 'h':
                 fprintf(stderr, "(1) Usage: %s [-devh] [-D DBGVAL] [-p PASSFILE] infile outfile\n", argv[0]);
                 exit(EXIT_FAILURE);
             case 'p':
-                flags += 5000;
-                if(strcmp(optarg, "-") == 0){
-                    curIn = 0;
-                    fileCount++;
-                    password = getpass("(1) Please provide a password for encryption/decryption: ");
-                }
+                opt_p += 1;
+                getFilePassword(optarg);
                 break;
             case 'D':
-                flags += 600000;
+                opt_D += 1;
                 debugString = optarg;
                 if((debugString[strlen(debugString) - 1] != 'd')){
-                    fprintf(stderr, "(2) Usage: %s [-devh] [-D DBGVAL] [-p PASSFILE] infile outfile\n", argv[0]);
-                    exit(EXIT_FAILURE);
+                    exitWithFailure();
                 }
                 getDebugValue(debugString);
                 break;
-            case ':':
-                switch (optopt)
-                {
-                case 'p':
-                    password = getpass("(2) Please provide a password for encryption/decryption: ");
-                    fprintf(stdout, "Password given: %s \n", password);
-                    break;
-                default:
-                    fprintf(stderr, "(3) Usage: %s [-devh] [-D DBGVAL] [-p PASSFILE] infile outfile\n", argv[0]);
-                    exit(EXIT_FAILURE);
-                }
-                break;
             default:
-                fprintf(stderr, "(4) Usage: %s [-devh] [-D DBGVAL] [-p PASSFILE] infile outfile\n", argv[0]);
-                exit(EXIT_FAILURE);
+                exitWithFailure();
         }
     }
 
-    fprintf(stderr, "optind : %i \n", optind);
+
     if(optind >= argc){
         fprintf(stderr, "No infile/outfile provided. Please try again. \n");
-        fprintf(stderr, "Usage: %s [-devh] [-D DBGVAL] [-p PASSFILE] infile outfile\n", argv[0]);
-        exit(EXIT_FAILURE);
+        exitWithFailure();
     }
 
-    while(optind < argc && fileCount < 2){
+    if((argc - optind) > 2){
+        fprintf(stderr, "Too many arguments provided please try again. \n");
+        exitWithFailure();
+    }
+
+    if(opt_d >= 1 && opt_e >= 1){
+        fprintf(stderr, "You cannot have both -d and -e, please try again. \n");
+        exitWithFailure();
+    }
+
+    if(opt_d == 0 && opt_e == 0){
+        fprintf(stderr, "You need to provide either -e or -d, please try again. \n");
+        exitWithFailure();
+    }
+
+    if(opt_d > 1 || opt_e > 1 || opt_v > 1 || opt_p > 1 || opt_D > 1){
+        fprintf(stderr, "You cannot have multiple of the same flag, please try again. \n");
+        exitWithFailure();
+    }
+
+    if(opt_p == 0){
+        password = getpass("Please provide a password to encrypt/decrypt: ");
+        if(copyPassword(password) != 1){
+            perror("copyPassword");
+            closeAll();
+            exit(EXIT_FAILURE);
+        }
+        free(password);
+    }
+
+    while(optind < argc){
         if(fileCount == 0){
             if(strcmp(argv[optind], "-") != 0){
-                curIn = open(argv[optind], O_RDONLY);
+                if(access(argv[optind], R_OK) == 0){
+                    fdIn = open(argv[optind], O_RDONLY);
+                }
+                else {
+                    perror(strerror(errno));
+                    exitWithFailure();
+                }
             }
-            else{
-                curIn = 0;
+            else {
+                fdIn = 0;
             }
         }
         else if(fileCount == 1){
             if(strcmp(argv[optind], "-") != 0){
-                curOut = open(argv[optind], O_WRONLY);
+                if(access(argv[optind], W_OK) == 0){
+                    //  TODO  Use mkstemp
+                    fdOut = open(argv[optind], O_WRONLY);
+                }
+                else {
+                    //  TODO  make one 
+                    fprintf(stderr, "OUTFILE DOESNT EXIST \n");
+                }
             }
-            else{
-                curOut = 1;
+            else {
+                fdOut = 1;
             }
-            break;
-        }      
-        fprintf(stderr, "extra arguments: %s\n", argv[optind]);
+        }
         fileCount++;
         optind++;  
     }
 
-    int writeRet = write(curOut, testText, 9);
-    fprintf(stderr, "\nwriteRet : %i with curOut: %i \n", writeRet, curOut);
-    if(curIn != 0){
-        close(curIn);
-    }
-    if(curOut != 1){
-        close(curOut);
-    }
 
-    //  NOTE  If curIn or curOut are equal to zero, use stdin and stdout respectively. 
+    fprintf(stderr, "curIn : %i, curOut: %i \n", fdIn, fdOut);
+
+    closeAll();
+
+}
+
+void exitWithFailure(void){
+    closeAll();
+    fprintf(stderr, "Usage: ./fenc [-devh] [-D DBGVAL] [-p PASSFILE] infile outfile\n");
+    exit(EXIT_FAILURE);
 }

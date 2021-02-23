@@ -4,6 +4,6 @@ logs/
 testFiles/
 *~
 *.out
-.vscode/settings.json
+.vscode/
 .gitignore
 fenc
