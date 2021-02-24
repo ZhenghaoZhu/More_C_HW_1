@@ -125,6 +125,10 @@ int main(int argc, char *argv[], char *envp[]) {
                 checkStatMode(fileStat.st_mode);
                 if((access(argv[optind], F_OK) != -1) && (access(argv[optind], R_OK) == 0)){
                     fdIn = open(argv[optind], O_RDONLY);
+                    if(fdIn < 0){
+                        perror("open");
+                        exitWithFailure();
+                    }
                 }
                 else {
                     perror("access (Read)");
@@ -158,6 +162,11 @@ int main(int argc, char *argv[], char *envp[]) {
         }
         fileCount++;
         optind++;  
+    }
+
+    if(startCopy(fdIn, fdOut, opt_e) == 1){
+        perror("startCopy");
+        exitWithFailure();
     }
 
 

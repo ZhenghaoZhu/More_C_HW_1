@@ -1,6 +1,5 @@
 CC := gcc
 SRCD := src
-TSTD := tests
 BLDD := build
 INCD := include
 TFLD := testFiles
@@ -10,8 +9,6 @@ MAIN  := $(BLDD)/main.o
 ALL_SRCF := $(shell find $(SRCD) -type f -name *.c)
 ALL_OBJF := $(patsubst $(SRCD)/%,$(BLDD)/%,$(ALL_SRCF:.c=.o))
 ALL_FUNCF := $(filter-out $(MAIN) $(AUX), $(ALL_OBJF))
-
-TEST_SRC := $(shell find $(TSTD) -type f -name *.c)
 
 INC := -I $(INCD)
 
@@ -49,8 +46,7 @@ clean:
 		rm -rf $(BLDD)
 
 wipe:
-		rm $(TFLD)/outFile.txt
-		touch $(TFLD)/outFile.txt
+		truncate -s 0 $(TFLD)/outFile.txt
 
 .PRECIOUS: $(BLDD)/*.d
 -include $(BLDD)/*.d

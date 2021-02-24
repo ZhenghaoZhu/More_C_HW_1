@@ -8,12 +8,12 @@
 #include <errno.h>
 #include "fenc.h"
 
-int d00 = 0;
-int d01 = 0;
-int d02 = 0;
-int d04 = 0;
-int d16 = 0;
-int d32 = 0;
+static int d00 = 0;
+static int d01 = 0;
+static int d02 = 0;
+static int d04 = 0;
+static int d16 = 0;
+static int d32 = 0;
 
 char* pwdBuf = NULL;
 
@@ -91,12 +91,53 @@ int copyPassword(char* password){
     return 0;
 }
 
-int readIn(){
+int startCopy(int fdIn, int fdOut, int opt_e){
+    int pageSize = getpagesize();
+    char* readInBuf = (char*)calloc(pageSize + 1, sizeof(char));
+    char* tmpBuf = NULL;
+    if(readInBuf == NULL){
+        perror("malloc");
+        exit(EXIT_FAILURE);
+    }
+    int fileLen = 0;
+    int readRet = 0;
+
+    while((readRet = read(fdIn, readInBuf + fileLen, pageSize)) > 0){
+        fileLen += readRet;
+        if(readRet == pageSize){
+            tmpBuf = (char*)realloc(readInBuf, fileLen + pageSize);
+            if(tmpBuf != NULL){
+                readInBuf = tmpBuf;
+            }
+            else {
+                perror("realloc");
+                return 1;
+            }
+        }
+    }
+
+    if(readRet == -1){
+        perror("read");
+        return 1;
+    }
+
+    readInBuf[fileLen] = '\0';
+    fprintf(stderr, "fileLen: %i \n", fileLen);
+    int writeRet = write(fdOut, readInBuf, fileLen);
+    if(writeRet < 0 || writeRet < fileLen || writeRet > fileLen){
+        perror("write");
+        free(readInBuf);
+        return 1;
+    }
+    return 0;
+}
+
+int encryptCopy(){
     //  TODO  
     return 0;
 }
 
-int writeOut(){
+int decryptCopy(){
     //  TODO  
     return 0;
 }

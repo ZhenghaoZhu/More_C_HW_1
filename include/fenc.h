@@ -7,8 +7,9 @@ int fdOut;
 int getDebugValue(char* debugString);
 int getFilePassword(char* curFile);
 int copyPassword(char* password);
-int readIn();
-int writeOut();
+int startCopy(int fdIn, int fdOut, int opt_e);
+int encryptCopy();
+int decryptCopy();
 int closeAll();
 
 void debugFunctionCallsArgs(char* curFunction, char* curArgs);
