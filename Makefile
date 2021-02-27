@@ -47,6 +47,7 @@ clean:
 
 wipe:
 		truncate -s 0 $(TFLD)/outFile.txt
+		rm test_*
 
 .PRECIOUS: $(BLDD)/*.d
 -include $(BLDD)/*.d

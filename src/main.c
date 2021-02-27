@@ -80,7 +80,6 @@ int main(int argc, char *argv[], char *envp[]) {
         }
     }
 
-
     if(optind >= argc){
         fprintf(stderr, "No infile/outfile provided. Please try again. \n");
         exitWithFailure();
@@ -104,14 +103,6 @@ int main(int argc, char *argv[], char *envp[]) {
     if(opt_d > 1 || opt_e > 1 || opt_v > 1 || opt_p > 1 || opt_D > 1){
         fprintf(stderr, "You cannot have multiple of the same flag, please try again. \n");
         exitWithFailure();
-    }
-
-    if(opt_p == 0){
-        password = getpass("Please provide a password to encrypt/decrypt: ");
-        if(copyPassword(password) != 1){
-            exitWithFailure();
-        }
-        free(password);
     }
 
     struct stat fileStat;
@@ -162,6 +153,11 @@ int main(int argc, char *argv[], char *envp[]) {
         }
         fileCount++;
         optind++;  
+    }
+
+    if(fileCount != 2){
+        fprintf(stderr, "No infile/outfile provided. Please try again. \n");
+        exitWithFailure();
     }
 
     if(startCopy(fdIn, fdOut, opt_e) == 1){

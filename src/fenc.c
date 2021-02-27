@@ -16,6 +16,7 @@ static int d16 = 0;
 static int d32 = 0;
 
 char* pwdBuf = NULL;
+char* readInBuf = NULL;
 
 /* 
  * open() -> read() -> open() -> write() -> close() (twice)
@@ -70,9 +71,12 @@ int getFilePassword(char* curFile){
                 return 1;
             }
         }
+        else {
+            break;
+        }
     }
 
-    if(readRet == -1){
+    if(readRet < 0){
         perror("read");
         return 1;
     }
@@ -93,7 +97,7 @@ int copyPassword(char* password){
 
 int startCopy(int fdIn, int fdOut, int opt_e){
     int pageSize = getpagesize();
-    char* readInBuf = (char*)calloc(pageSize + 1, sizeof(char));
+    readInBuf = (char*)calloc(pageSize + 1, sizeof(char));
     char* tmpBuf = NULL;
     if(readInBuf == NULL){
         perror("malloc");
@@ -114,19 +118,23 @@ int startCopy(int fdIn, int fdOut, int opt_e){
                 return 1;
             }
         }
+        else {
+            break;
+        }
     }
 
-    if(readRet == -1){
+    if(readRet < 0){
         perror("read");
         return 1;
     }
 
     readInBuf[fileLen] = '\0';
     fprintf(stderr, "fileLen: %i \n", fileLen);
-    int writeRet = write(fdOut, readInBuf, fileLen);
+    char tmpfile[] = "test_XXXXXX";
+    int tempFd = mkstemp(tmpfile);
+    int writeRet = write(tempFd, readInBuf, fileLen);
     if(writeRet < 0 || writeRet < fileLen || writeRet > fileLen){
         perror("write");
-        free(readInBuf);
         return 1;
     }
     return 0;
@@ -158,6 +166,11 @@ int closeAll(){
     if(pwdBuf != NULL){
         fprintf(stderr, "Password before free: %s \n", pwdBuf);
         free(pwdBuf);
+    }
+
+    if(readInBuf != NULL){
+        fprintf(stderr, "Freeing the readInBuf \n");
+        free(readInBuf);
     }
     return 0;
 }
