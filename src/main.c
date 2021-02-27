@@ -39,8 +39,8 @@ int main(int argc, char *argv[], char *envp[]) {
     int opt_d = 0, opt_e = 0, opt_v = 0, opt_p = 0, opt_D = 0;
     int opt, fileCount = 0;
     char* password = NULL;
-    fdIn = 0;
-    fdOut = 0;
+    fdInPath = NULL;
+    fdOutPath = NULL;
     char* debugString = NULL;
     while ((opt = getopt(argc, argv, ":devhp:D:")) != -1) {
         switch (opt) {
@@ -115,9 +115,9 @@ int main(int argc, char *argv[], char *envp[]) {
                 }
                 checkStatMode(fileStat.st_mode);
                 if((access(argv[optind], F_OK) != -1) && (access(argv[optind], R_OK) == 0)){
-                    fdIn = open(argv[optind], O_RDONLY);
-                    if(fdIn < 0){
-                        perror("open");
+                    fdInPath = strdup(argv[optind]);
+                    if(fdInPath == NULL){
+                        perror("strdup");
                         exitWithFailure();
                     }
                 }
@@ -127,7 +127,7 @@ int main(int argc, char *argv[], char *envp[]) {
                 }
             }
             else {
-                fdIn = 0;
+                fdInPath = NULL;
             }
         }
         else if(fileCount == 1){
@@ -139,16 +139,15 @@ int main(int argc, char *argv[], char *envp[]) {
                 checkStatMode(fileStat.st_mode);
                 if((access(argv[optind], F_OK) != -1) && (access(argv[optind], W_OK) == 0)){
                     //  TODO  Use mkstemp
-                    fdOut = open(argv[optind], O_WRONLY);
-                }
-                else {
-                    //  TODO  make one 
-                    perror("access (Write)");
-                    exitWithFailure();
+                    fdOutPath = strdup(argv[optind]);
+                    if(fdOutPath == NULL){
+                        perror("strdup");
+                        exitWithFailure();
+                    }
                 }
             }
             else {
-                fdOut = 1;
+                fdOutPath = NULL;
             }
         }
         fileCount++;
@@ -160,13 +159,13 @@ int main(int argc, char *argv[], char *envp[]) {
         exitWithFailure();
     }
 
-    if(startCopy(fdIn, fdOut, opt_e) == 1){
+    if(copyProcess(fdInPath, fdOutPath, opt_e) == 1){
         perror("startCopy");
         exitWithFailure();
     }
 
 
-    fprintf(stderr, "curIn : %i, curOut: %i \n", fdIn, fdOut);
+    fprintf(stderr, "curIn : %s, curOut: %s \n", fdInPath, fdOutPath);
 
     if(closeAll() == 1){
         fprintf(stderr, "Usage: ./fenc [-devh] [-D DBGVAL] [-p PASSFILE] infile outfile\n");

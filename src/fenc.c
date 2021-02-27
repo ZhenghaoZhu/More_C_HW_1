@@ -95,26 +95,35 @@ int copyPassword(char* password){
     return 0;
 }
 
-int startCopy(int fdIn, int fdOut, int opt_e){
+int copyProcess(char* fdInPath, char* fdOutPath, int opt_e){
     int pageSize = getpagesize();
-    readInBuf = (char*)calloc(pageSize + 1, sizeof(char));
     char* tmpBuf = NULL;
+    char tmpFile[] = "test_XXXXXX";
+    int tempFdOut = 0;
+    int fdIn = 0;
+    readInBuf = (char*)calloc(pageSize + 1, sizeof(char));
+    tempFdOut = mkstemp(tmpFile);
     if(readInBuf == NULL){
         perror("malloc");
         exit(EXIT_FAILURE);
     }
+    if(tempFdOut == -1){
+        perror("mkstemp");
+        exit(EXIT_FAILURE);
+    }
+    if(fdInPath != NULL){
+        fdIn = open(fdInPath, O_RDONLY);
+    }
     int fileLen = 0;
     int readRet = 0;
-
-    while((readRet = read(fdIn, readInBuf + fileLen, pageSize)) > 0){
-        fileLen += readRet;
+    int writeRet = 0;
+    while((readRet = read(fdIn, readInBuf, pageSize)) > 0){
+        fileLen = readRet;
         if(readRet == pageSize){
-            tmpBuf = (char*)realloc(readInBuf, fileLen + pageSize);
-            if(tmpBuf != NULL){
-                readInBuf = tmpBuf;
-            }
-            else {
-                perror("realloc");
+            //  TODO  Encrypt/Decrypt with password
+            writeRet = write(tempFdOut, readInBuf, fileLen);
+            if(writeRet < 0 || writeRet < fileLen || writeRet > fileLen){
+                perror("write");
                 return 1;
             }
         }
@@ -130,13 +139,24 @@ int startCopy(int fdIn, int fdOut, int opt_e){
 
     readInBuf[fileLen] = '\0';
     fprintf(stderr, "fileLen: %i \n", fileLen);
-    char tmpfile[] = "test_XXXXXX";
-    int tempFd = mkstemp(tmpfile);
-    int writeRet = write(tempFd, readInBuf, fileLen);
+    //  TODO  Encrypt/Decrypt with password
+    writeRet = write(tempFdOut, readInBuf, fileLen);
+
     if(writeRet < 0 || writeRet < fileLen || writeRet > fileLen){
         perror("write");
         return 1;
     }
+
+    if(remove(fdOutPath) == -1){
+        perror("remove");
+        return 1;
+    }
+    
+    if(rename(tmpFile, fdOutPath) == -1){
+        perror("rename");
+        return 1;
+    }
+
     return 0;
 }
 
@@ -151,17 +171,11 @@ int decryptCopy(){
 }
 
 int closeAll(){
-    if(fdIn >= 0){
-        if(close(fdIn) == -1){
-            perror("close");
-            return 1;
-        }
+    if(fdInPath != NULL){
+        free(fdInPath);
     }
-    if(fdOut >= 0){
-        if(close(fdOut) == -1){
-            perror("close");
-            return 1;
-        }
+    if(fdOutPath != NULL){
+        free(fdOutPath);
     }
     if(pwdBuf != NULL){
         fprintf(stderr, "Password before free: %s \n", pwdBuf);
