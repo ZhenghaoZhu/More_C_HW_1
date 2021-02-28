@@ -9,4 +9,5 @@ myTests/
 fenc
 testFiles/nonReadFile.txt
 testFiles/nonWriteFile.txt
+testFiles/bigFile.txt
 .gitignore

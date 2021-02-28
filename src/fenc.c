@@ -15,12 +15,8 @@ static int d04 = 0;
 static int d16 = 0;
 static int d32 = 0;
 
-char* pwdBuf = NULL;
-char* readInBuf = NULL;
-
-/* 
- * open() -> read() -> open() -> write() -> close() (twice)
- */
+static char* pwdBuf = NULL;
+static char* readInBuf = NULL;
 
 int getDebugValue(char* debugString){
     int numberHolder = 0;
@@ -76,17 +72,27 @@ int getFilePassword(char* curFile){
         }
     }
 
+    if(close(curFD) == -1){
+        perror("close");
+        return 1;
+    }
+
     if(readRet < 0){
         perror("read");
         return 1;
     }
 
-    pwdBuf[pwdLen] = '\0';
+    int actualLen = 1; // Start with 1 for null terminator
+    while(actualLen <= pwdLen && pwdBuf[actualLen] != '\n'){
+        actualLen++;
+    }
+    
+    pwdBuf[actualLen] = '\0';
     return 0;
 }
 
-int copyPassword(char* password){
-    pwdBuf = strdup(password);
+int stdInPassword(){
+    pwdBuf = getpass("Please provide password used to decrypt/encrypt: ");
     if(pwdBuf == NULL){
         fprintf(stderr, "Unable to save password, please try again \n");
         return 1;
@@ -95,14 +101,15 @@ int copyPassword(char* password){
     return 0;
 }
 
-int copyProcess(char* fdInPath, char* fdOutPath, int opt_e){
+int copyStart(char* fdInPath, char* fdOutPath, int opt_e){
+    fprintf(stderr, "In copyProcess() \n");
     int pageSize = getpagesize();
     char* tmpBuf = NULL;
-    char tmpFile[] = "test_XXXXXX";
+    char tmpFilePath[] = "test_XXXXXX";
     int tempFdOut = 0;
     int fdIn = 0;
     readInBuf = (char*)calloc(pageSize + 1, sizeof(char));
-    tempFdOut = mkstemp(tmpFile);
+    tempFdOut = mkstemp(tmpFilePath);
     if(readInBuf == NULL){
         perror("malloc");
         exit(EXIT_FAILURE);
@@ -114,16 +121,17 @@ int copyProcess(char* fdInPath, char* fdOutPath, int opt_e){
     if(fdInPath != NULL){
         fdIn = open(fdInPath, O_RDONLY);
     }
-    int fileLen = 0;
+    int curReadRet = 0;
     int readRet = 0;
     int writeRet = 0;
     while((readRet = read(fdIn, readInBuf, pageSize)) > 0){
-        fileLen = readRet;
+        curReadRet = readRet;
         if(readRet == pageSize){
             //  TODO  Encrypt/Decrypt with password
-            writeRet = write(tempFdOut, readInBuf, fileLen);
-            if(writeRet < 0 || writeRet < fileLen || writeRet > fileLen){
+            writeRet = write(tempFdOut, readInBuf, curReadRet);
+            if(writeRet < 0 || writeRet < curReadRet || writeRet > curReadRet){
                 perror("write");
+                remove(tmpFilePath);
                 return 1;
             }
         }
@@ -134,38 +142,53 @@ int copyProcess(char* fdInPath, char* fdOutPath, int opt_e){
 
     if(readRet < 0){
         perror("read");
+        remove(tmpFilePath);
         return 1;
     }
 
-    readInBuf[fileLen] = '\0';
-    fprintf(stderr, "fileLen: %i \n", fileLen);
-    //  TODO  Encrypt/Decrypt with password
-    writeRet = write(tempFdOut, readInBuf, fileLen);
+    if(close(fdIn) == -1){
+        perror("close");
+        remove(tmpFilePath);
+        return 1;
+    }
 
-    if(writeRet < 0 || writeRet < fileLen || writeRet > fileLen){
+    readInBuf[curReadRet] = '\0';
+    //  TODO  Encrypt/Decrypt with password
+    writeRet = write(tempFdOut, readInBuf, curReadRet);
+
+    if(writeRet < 0 || writeRet < curReadRet || writeRet > curReadRet){
         perror("write");
+        remove(tmpFilePath);
+        return 1;
+    }
+
+    if(close(tempFdOut) == -1){
+        perror("close");
+        remove(tmpFilePath);
         return 1;
     }
 
     if(remove(fdOutPath) == -1){
         perror("remove");
+        remove(tmpFilePath);
         return 1;
     }
     
-    if(rename(tmpFile, fdOutPath) == -1){
+    if(rename(tmpFilePath, fdOutPath) == -1){
         perror("rename");
+        remove(tmpFilePath);
         return 1;
     }
 
     return 0;
 }
 
-int encryptCopy(){
+int encryptBuf(int curFd, char* curBuf, int curBufLen){
     //  TODO  
     return 0;
 }
 
-int decryptCopy(){
+int decryptBuf(){
     //  TODO  
     return 0;
 }

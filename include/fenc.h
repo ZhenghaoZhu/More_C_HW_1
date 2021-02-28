@@ -6,10 +6,10 @@ char* fdOutPath;
 
 int getDebugValue(char* debugString);
 int getFilePassword(char* curFile);
-int copyPassword(char* password);
-int copyProcess(char* fdInPath, char* fdOutPath, int opt_e);
-int encryptCopy();
-int decryptCopy();
+int stdInPassword();
+int copyStart(char* fdInPath, char* fdOutPath, int opt_e);
+int encryptBuf();
+int decryptBuf();
 int closeAll();
 
 void debugFunctionCallsArgs(char* curFunction, char* curArgs);

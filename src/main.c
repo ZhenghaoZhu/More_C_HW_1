@@ -105,19 +105,35 @@ int main(int argc, char *argv[], char *envp[]) {
         exitWithFailure();
     }
 
-    struct stat fileStat;
+    if(opt_p < 1){
+        if(stdInPassword() == 1){
+            perror("stdInPassword");
+            exitWithFailure();
+        }
+    }
+
+    struct stat fdInfileStat;
+    struct stat fdOutfileStat;
+    // int checkFdIn = -1;
+    // int checkFdOut = -1;
     while(optind < argc){
         if(fileCount == 0){
             if(strcmp(argv[optind], "-") != 0){
-                if(stat(argv[optind], &fileStat) == -1){
+                if(stat(argv[optind], &fdInfileStat) == -1){
                     perror("stat");
                     exitWithFailure();
                 }
-                checkStatMode(fileStat.st_mode);
+                checkStatMode(fdInfileStat.st_mode);
                 if((access(argv[optind], F_OK) != -1) && (access(argv[optind], R_OK) == 0)){
                     fdInPath = strdup(argv[optind]);
                     if(fdInPath == NULL){
                         perror("strdup");
+                        exitWithFailure();
+                    }
+                    long testPages = sysconf(_SC_AVPHYS_PAGES);
+                    long long availableBytes = testPages * getpagesize();
+                    if(fdInfileStat.st_size > availableBytes){
+                        fprintf(stderr, "Available memory not sufficient for file encryption/decryption.\n");
                         exitWithFailure();
                     }
                 }
@@ -132,13 +148,16 @@ int main(int argc, char *argv[], char *envp[]) {
         }
         else if(fileCount == 1){
             if(strcmp(argv[optind], "-") != 0){
-                if(stat(argv[optind], &fileStat) == -1){
+                if(stat(argv[optind], &fdOutfileStat) == -1){
                     perror("stat");
                     exitWithFailure();
                 }
-                checkStatMode(fileStat.st_mode);
+                checkStatMode(fdOutfileStat.st_mode);
+                if(fdInPath != NULL && (fdInfileStat.st_ino == fdOutfileStat.st_ino)){
+                    fprintf(stderr, "Filepaths provided are the same, please provide filepaths to different files.\n");
+                    exitWithFailure();
+                }
                 if((access(argv[optind], F_OK) != -1) && (access(argv[optind], W_OK) == 0)){
-                    //  TODO  Use mkstemp
                     fdOutPath = strdup(argv[optind]);
                     if(fdOutPath == NULL){
                         perror("strdup");
@@ -159,7 +178,7 @@ int main(int argc, char *argv[], char *envp[]) {
         exitWithFailure();
     }
 
-    if(copyProcess(fdInPath, fdOutPath, opt_e) == 1){
+    if(copyStart(fdInPath, fdOutPath, opt_e) == 1){
         perror("startCopy");
         exitWithFailure();
     }
