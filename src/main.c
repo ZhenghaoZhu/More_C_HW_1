@@ -149,8 +149,14 @@ int main(int argc, char *argv[], char *envp[]) {
         else if(fileCount == 1){
             if(strcmp(argv[optind], "-") != 0){
                 if(stat(argv[optind], &fdOutfileStat) == -1){
-                    perror("stat");
-                    exitWithFailure();
+                    if(open(argv[optind], O_CREAT, S_IRWXU) == -1){
+                        perror("open");
+                        exitWithFailure();
+                    }
+                    if(stat(argv[optind], &fdOutfileStat) == -1){
+                        perror("stat");
+                        exitWithFailure();
+                    }
                 }
                 checkStatMode(fdOutfileStat.st_mode);
                 if(fdInPath != NULL && (fdInfileStat.st_ino == fdOutfileStat.st_ino)){

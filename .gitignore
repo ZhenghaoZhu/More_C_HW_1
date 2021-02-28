@@ -7,7 +7,7 @@ myTests/
 .vscode/
 .gitignore
 fenc
-testFiles/nonReadFile.txt
-testFiles/nonWriteFile.txt
-testFiles/bigFile.txt
+testFiles/non*.txt
+testFiles/big*.txt
+testFiles/temp*.txt
 .gitignore

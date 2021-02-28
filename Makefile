@@ -44,9 +44,11 @@ $(BLDD)/%.o: $(SRCD)/%.c
 
 clean:
 		rm -rf $(BLDD)
+		
 
 wipe:
 		truncate -s 0 $(TFLD)/outFile.txt
+		truncate -s 0 $(TFLD)/bigOutFile.txt
 
 .PRECIOUS: $(BLDD)/*.d
 -include $(BLDD)/*.d
