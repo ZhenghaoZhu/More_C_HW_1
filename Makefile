@@ -3,6 +3,7 @@ SRCD := src
 BLDD := build
 INCD := include
 TFLD := testFiles
+TLD  := tests
 
 MAIN  := $(BLDD)/main.o
 
@@ -24,7 +25,7 @@ CFLAGS += $(STD)
 
 EXEC := fenc
 
-.PHONY: clean all setup debug
+.PHONY: clean all setup debug tests wipe
 
 all: setup $(EXEC) 
 
@@ -45,6 +46,10 @@ $(BLDD)/%.o: $(SRCD)/%.c
 clean:
 		rm -rf $(BLDD)
 		
+tests: 
+		bash $(TLD)/test1.sh
+		bash $(TLD)/test2.sh
+		bash $(TLD)/test3.sh
 
 wipe:
 		truncate -s 0 $(TFLD)/outFile.txt

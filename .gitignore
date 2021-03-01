@@ -8,5 +8,6 @@ logs/
 fenc
 testFiles/non*.txt
 testFiles/big*.txt
+testFiles/small*.txt
 testFiles/temp*.txt
 .gitignore

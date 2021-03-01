@@ -6,14 +6,17 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <openssl/evp.h>
+#include <openssl/aes.h>
+#include<stdarg.h>
 #include "fenc.h"
 
-static int d00 = 0;
-static int d01 = 0;
-static int d02 = 0;
-static int d04 = 0;
-static int d16 = 0;
-static int d32 = 0;
+static int debugNone = 0;
+static int debugFuncCalls = 0;
+static int debugLibCalls = 0;
+static int debugSysCalls = 0;
+static int debugArgs = 0;
+static int debugRet = 0;
 
 static char* pwdBuf = NULL;
 static char* readInBuf = NULL;
@@ -21,49 +24,67 @@ static char* readInBuf = NULL;
 int getDebugValue(char* debugString){
     int numberHolder = 0;
     int count = 0;
-    for(int i = 0; i < strlen(debugString) - 1; i++){
+    int debugStrLen = my_strlen(debugString);
+    for(int i = 0; i < debugStrLen - 1; i++){
         numberHolder *= 10;
         numberHolder += (int)(debugString[i] - 48);
     }
-    d00 = numberHolder & 0;
-    d01 = numberHolder & 1;
-    d02 = numberHolder & 2;
-    d04 = numberHolder & 4;
-    d16 = numberHolder & 16;
-    d32 = numberHolder & 32;
-    if((numberHolder > 0) && ((d00 + d01 + d02 + d04 + d16 + d32) == 0)){
-        fprintf(stderr, "Non-valid debug number provided, please try again \n");
+    debugNone = numberHolder & 0;
+    debugFuncCalls = numberHolder & 1;
+    debugLibCalls = numberHolder & 2;
+    debugSysCalls = numberHolder & 4;
+    debugArgs = numberHolder & 16;
+    debugRet = numberHolder & 32;
+    if((numberHolder > 0) && ((debugNone + debugFuncCalls + debugLibCalls + debugSysCalls + debugArgs + debugRet) == 0)){
+        my_fprintf("Non-valid debug number provided, please try again \n");
+        DBG_ORI_FN_CALLS("Exited", 0, "%s", debugString);
+        DBG_RET("%i", 1);
         return 1;
     }
+    DBG_ORI_FN_CALLS("Entered", 1, "%s", debugString);
+    DBG_ORI_FN_CALLS("Exited", 0, "%s", debugString);
+    DBG_RET("%i", 0);
     return 0;
-    // printf("%i, %i, %i, %i, %i, %i \n", d00, d01, d02, d04, d16, d32);
 }
 
 int getFilePassword(char* curFile){
-    pwdBuf = (char*)calloc(PWD_FILE_READ + 1, sizeof(char));
+    DBG_ORI_FN_CALLS("Entered", 1, "%s", curFile);
+    pwdBuf = (char*)my_calloc(PWD_FILE_READ + 1, sizeof(char));
     char* tmpBuf = NULL;
     if(pwdBuf == NULL){
-        perror("malloc");
-        exit(EXIT_FAILURE);
+        my_perror("malloc");
+        DBG_ORI_FN_CALLS("Exited", 0, "%s", curFile);
+        DBG_RET("%i", 1);
+        return 1;
     }
     int pwdLen = 0;
     int readRet = 0;
-    int curFD = open(curFile, O_RDONLY);
+    int curFD = my_open(curFile, O_RDONLY);
 
     if(curFD == -1){
-        perror("open");
+        my_perror("open");
+        DBG_ORI_FN_CALLS("Exited", 0, "%s", curFile);
+        DBG_RET("%i", 1);
         return 1;
     }
 
-    while((readRet = read(curFD, pwdBuf + pwdLen, PWD_FILE_READ)) > 0){
+    while((readRet = my_read(curFD, pwdBuf + pwdLen, PWD_FILE_READ)) > 0){
         pwdLen += readRet;
         if(readRet == PWD_FILE_READ){
-            tmpBuf = (char*)realloc(pwdBuf, pwdLen + PWD_FILE_READ);
+            tmpBuf = (char*)my_realloc(pwdBuf, pwdLen + PWD_FILE_READ);
             if(tmpBuf != NULL){
                 pwdBuf = tmpBuf;
             }
             else {
-                perror("realloc");
+                my_perror("realloc");
+                DBG_ORI_FN_CALLS("Exited", 0, "%s", curFile);
+                if(my_close(curFD) == -1){
+                    my_perror("close");
+                    DBG_ORI_FN_CALLS("Exited", 0, "%s", curFile);
+                    DBG_RET("%i", 1);
+                    return 1;
+                }
+                DBG_RET("%i", 1);
                 return 1;
             }
         }
@@ -72,13 +93,17 @@ int getFilePassword(char* curFile){
         }
     }
 
-    if(close(curFD) == -1){
-        perror("close");
+    if(my_close(curFD) == -1){
+        my_perror("close");
+        DBG_ORI_FN_CALLS("Exited", 0, "%s", curFile);
+        DBG_RET("%i", 1);
         return 1;
     }
 
     if(readRet < 0){
-        perror("read");
+        my_perror("read");
+        DBG_ORI_FN_CALLS("Exited", 0, "%s", curFile);
+        DBG_RET("%i", 1);
         return 1;
     }
 
@@ -88,50 +113,90 @@ int getFilePassword(char* curFile){
     }
     
     pwdBuf[actualLen] = '\0';
+    tmpBuf = my_strdup(pwdBuf);
+    my_free(pwdBuf);
+    pwdBuf = tmpBuf;
+    DBG_ORI_FN_CALLS("Exited", 0, "%s", curFile);
+    DBG_RET("%i", 0);
     return 0;
 }
 
-int stdInPassword(){
+int stdInPassword(int second_time){
+    DBG_ORI_FN_CALLS("Entered", 1, "%s", "(void)");
+    char* pwdBufSecond = NULL;
     pwdBuf = getpass("Please provide password used to decrypt/encrypt: ");
     if(pwdBuf == NULL){
-        fprintf(stderr, "Unable to save password, please try again \n");
+        my_fprintf("Unable to save password, please try again \n");
+        DBG_ORI_FN_CALLS("Exited", 0, "%s", "(void)");
+        DBG_RET("%i", 1);
         return 1;
     }
-        fprintf(stderr, "Given password : %s \n", pwdBuf);
+    if(second_time){
+        char* tmpBuf = strdup(pwdBuf);
+        printf("First time: %s\n", pwdBuf);
+        fflush(stdout);
+        pwdBufSecond = getpass("Please confirm password by retyping it: ");
+        printf("First time: %s Second time : %s \n", tmpBuf, pwdBufSecond);
+        if(strcmp(tmpBuf, pwdBufSecond) != 0){
+            my_fprintf("Passwords don't match. Please try again \n");
+            my_free(tmpBuf);
+            return 1;
+        }
+        my_free(tmpBuf);
+    }
+    DBG_ORI_FN_CALLS("Exited", 0, "%s", "(void)");
+    DBG_RET("%i", 0);
     return 0;
 }
 
 int copyStart(char* fdInPath, char* fdOutPath, int opt_e){
-    fprintf(stderr, "In copyProcess() \n");
-    int pageSize = getpagesize();
+    DBG_ORI_FN_CALLS("Entered", 1, "%s %s %i", fdInPath, fdOutPath, opt_e);
+    int pageSize = my_getpagesize();
     char* tmpBuf = NULL;
-    char tmpFilePath[] = "test_XXXXXX";
+    char tmpFilePath[] = ".test_XXXXXX";
     int tempFdOut = 0;
     int fdIn = 0;
-    readInBuf = (char*)calloc(pageSize + 1, sizeof(char));
-    tempFdOut = mkstemp(tmpFilePath);
+    readInBuf = (char*)my_calloc(pageSize + 1, sizeof(char));
+    tempFdOut = my_mkstemp(tmpFilePath);
     if(readInBuf == NULL){
-        perror("malloc");
-        exit(EXIT_FAILURE);
+        my_perror("malloc");
+        DBG_ORI_FN_CALLS("Exited", 0, "%s %s %i", fdInPath, fdOutPath, opt_e);
+        DBG_RET("%i", 1);
+        return 1;
     }
     if(tempFdOut == -1){
-        perror("mkstemp");
-        exit(EXIT_FAILURE);
+        my_perror("mkstemp");
+        DBG_ORI_FN_CALLS("Exited", 0, "%s %s %i", fdInPath, fdOutPath, opt_e);
+        DBG_RET("%i", 1);
+        return 1;
     }
     if(fdInPath != NULL){
-        fdIn = open(fdInPath, O_RDONLY);
+        fdIn = my_open(fdInPath, O_RDONLY);
+        if(fdIn < 0){
+            my_perror("open");
+            DBG_RET("%i", 1);
+            return 1;
+        }
     }
     int curReadRet = 0;
     int readRet = 0;
     int writeRet = 0;
-    while((readRet = read(fdIn, readInBuf, pageSize)) > 0){
+    while((readRet = my_read(fdIn, readInBuf, pageSize)) > 0){
         curReadRet = readRet;
         if(readRet == pageSize){
             //  TODO  Encrypt/Decrypt with password
-            writeRet = write(tempFdOut, readInBuf, curReadRet);
+            writeRet = my_write(tempFdOut, readInBuf, curReadRet);
             if(writeRet < 0 || writeRet < curReadRet || writeRet > curReadRet){
-                perror("write");
-                remove(tmpFilePath);
+                my_perror("write");
+                if(my_close(fdIn) == -1){
+                    my_perror("close");
+                    my_remove(tmpFilePath);
+                    DBG_ORI_FN_CALLS("Exited", 0, "%s %s %i", fdInPath, fdOutPath, opt_e);
+                    DBG_RET("%i", 1);
+                    return 1;
+                }
+                DBG_ORI_FN_CALLS("Exited", 0, "%s %s %i", fdInPath, fdOutPath, opt_e);
+                DBG_RET("%i", 1);
                 return 1;
             }
         }
@@ -141,74 +206,106 @@ int copyStart(char* fdInPath, char* fdOutPath, int opt_e){
     }
 
     if(readRet < 0){
-        perror("read");
-        remove(tmpFilePath);
+        my_perror("read");
+        my_remove(tmpFilePath);
+        DBG_ORI_FN_CALLS("Exited", 0, "%s %s %i", fdInPath, fdOutPath, opt_e);
+        DBG_RET("%i", 1);
         return 1;
     }
 
-    if(close(fdIn) == -1){
-        perror("close");
-        remove(tmpFilePath);
+    if(my_close(fdIn) == -1){
+        my_perror("close");
+        my_remove(tmpFilePath);
+        DBG_ORI_FN_CALLS("Exited", 0, "%s %s %i", fdInPath, fdOutPath, opt_e);
+        DBG_RET("%i", 1);
         return 1;
     }
 
     readInBuf[curReadRet] = '\0';
     //  TODO  Encrypt/Decrypt with password
-    writeRet = write(tempFdOut, readInBuf, curReadRet);
+    writeRet = my_write(tempFdOut, readInBuf, curReadRet);
 
     if(writeRet < 0 || writeRet < curReadRet || writeRet > curReadRet){
-        perror("write");
-        remove(tmpFilePath);
+        my_perror("write");
+        my_remove(tmpFilePath);
+        DBG_ORI_FN_CALLS("Exited", 0, "%s %s %i", fdInPath, fdOutPath, opt_e);
+        DBG_RET("%i", 1);
         return 1;
     }
 
-    if(close(tempFdOut) == -1){
-        perror("close");
-        remove(tmpFilePath);
+    if(my_close(tempFdOut) == -1){
+        my_perror("close");
+        my_remove(tmpFilePath);
+        DBG_ORI_FN_CALLS("Exited", 0, "%s %s %i", fdInPath, fdOutPath, opt_e);
+        DBG_RET("%i", 1);
         return 1;
     }
 
     if(remove(fdOutPath) == -1){
-        perror("remove");
-        remove(tmpFilePath);
+        my_perror("remove");
+        my_remove(tmpFilePath);
+        DBG_ORI_FN_CALLS("Exited", 0, "%s %s %i", fdInPath, fdOutPath, opt_e);
+        DBG_RET("%i", 1);
         return 1;
     }
     
     if(rename(tmpFilePath, fdOutPath) == -1){
-        perror("rename");
-        remove(tmpFilePath);
+        my_perror("rename");
+        my_remove(tmpFilePath);
+        DBG_ORI_FN_CALLS("Exited", 0, "%s %s %i", fdInPath, fdOutPath, opt_e);
+        DBG_RET("%i", 1);
         return 1;
     }
 
+    DBG_RET("%i", 0);
     return 0;
 }
 
-int encryptBuf(int curFd, char* curBuf, int curBufLen){
-    //  TODO  
+int encryptBuf(int curFdOut, char* curBuf, int curBufLen){
+    DBG_ORI_FN_CALLS("Entered", 1, "%i %s %i", curFdOut, fdOutPath, curBufLen);
+    // EVP_CIPHER_CTX *ctxEncrypt = EVP_CIPHER_CTX_new();
+    // int cipherLen = curBufLen + AES_BLOCK_SIZE;
+    // EVP_EncryptInit_ex()
+    DBG_ORI_FN_CALLS("Exited", 0, "%i %s %i", curFdOut, fdOutPath, curBufLen);
+    DBG_RET("%i", 0);
     return 0;
 }
 
 int decryptBuf(){
+    DBG_ORI_FN_CALLS("Entered", 1, "%s", "(void)");
     //  TODO  
+    DBG_ORI_FN_CALLS("Exited", 0, "%s", "(void)");
+    DBG_RET("%i", 0);
     return 0;
 }
 
+// int initCTX(EVP_CIPHER_CTX *ctx, int do_encrypt){
+//     unsigned char key[] = "0123456789abcdeF";
+//     unsigned char iv[] = "1234567887654321";
+//     EVP_CIPHER_CTX_init(&ctx);
+//     EVP_CipherInit_ex(&ctx, EVP_aes_128_cbc(), NULL, NULL, NULL, do_encrypt);
+//     OPENSSL_assert(EVP_CIPHER_CTX_key_length(&ctx) == 16);
+//     OPENSSL_assert(EVP_CIPHER_CTX_iv_length(&ctx) == 16);
+//     EVP_CipherInit_ex(&ctx, NULL, NULL, key, iv, do_encrypt);
+// }
+
 int closeAll(){
+    DBG_ORI_FN_CALLS("Entered", 1, "%s", "(void)");
     if(fdInPath != NULL){
-        free(fdInPath);
+        my_free(fdInPath);
     }
     if(fdOutPath != NULL){
-        free(fdOutPath);
+        my_free(fdOutPath);
     }
     if(pwdBuf != NULL){
-        fprintf(stderr, "Password before free: %s \n", pwdBuf);
-        free(pwdBuf);
+        my_free(pwdBuf);
     }
 
     if(readInBuf != NULL){
-        fprintf(stderr, "Freeing the readInBuf \n");
-        free(readInBuf);
+        my_free(readInBuf);
     }
+    DBG_ORI_FN_CALLS("Exited", 0, "%s", "(void)");
+    DBG_RET("%i", 0);
     return 0;
 }
 
@@ -217,21 +314,178 @@ int closeAll(){
 /*                    DEBUG FUNCTIONS                       */
 /************************************************************/
 
-void debugFunctionCallsArgs(char* curFunction, char* curArgs){
-    if(d01 == 0){
-        return;
-    }
+int getDebugFuncCalls(){
+    return debugFuncCalls;
 }
 
-void debugLibCallsArgs(char* curFunction, char* curArgs){
-    if(d02 == 0){
-        return;
-    }
+int getDebugLibCalls(){
+    return debugLibCalls;
 }
 
-void debugSysCallsArgs(char* curFunction, char* curArgs){
-    if(d04 == 0){
-        return;
-    }
+int getDebugSysCalls(){
+    return debugSysCalls;
 }
 
+int getDebugArgs(){
+    return debugArgs;
+}
+
+int getDebugRet(){
+    return debugRet;
+}
+
+int my_getopt(int n, char** arr, char* string){
+    DBG_LIB_FN_CALLS("Entered", 1, "%i %p %s", n, arr, string);
+    int ret = getopt(n, arr, string);
+    DBG_LIB_FN_CALLS("Exited", 0, "%i %p %s", n, arr, string);
+    DBG_RET("%i", ret);
+    return ret;
+}
+
+int my_fprintf(char* output){
+    DBG_LIB_FN_CALLS("Entered", 1, "%s", output);
+    int ret = fprintf(stderr, "%s", output);
+    DBG_LIB_FN_CALLS("Exited", 0, "%s", output);
+    DBG_RET("%i", ret);
+    return ret;
+}
+
+void my_perror(char* output){
+    DBG_LIB_FN_CALLS("Entered", 1, "%s", output);
+    perror(output);
+    DBG_LIB_FN_CALLS("Exited", 0, "%s", output);
+    DBG_RET("%s", "(void)");
+    return;
+}
+
+int my_strcmp(char* c1, char* c2){
+    DBG_LIB_FN_CALLS("Entered", 1, "%s %s", c1, c2);
+    int ret = strcmp(c1, c2);
+    DBG_LIB_FN_CALLS("Exited", 0, "%s %s", c1, c2);
+    DBG_RET("%i", ret);
+    return ret;
+}
+
+int my_access(char* name, int type){
+    DBG_LIB_FN_CALLS("Entered", 1, "%s %i", name, type);
+    int ret = access(name, type);
+    DBG_LIB_FN_CALLS("Exited", 0, "%s %i", name, type);
+    DBG_RET("%i", ret);
+    return ret;
+}
+
+int my_stat(char* file, struct stat* buf){
+    DBG_LIB_FN_CALLS("Entered", 1, "%s %p", file, buf);
+    int ret = stat(file, buf);  
+    DBG_LIB_FN_CALLS("Exited", 0, "%s %p", file, buf);
+    DBG_RET("%i", ret);
+    return ret;
+}
+
+char* my_strdup(char* string){
+    DBG_LIB_FN_CALLS("Entered", 1, "%s", string);
+    char* ret = strdup(string);  
+    DBG_LIB_FN_CALLS("Exited", 0, "%s", string);
+    DBG_RET("%s", ret);
+    return ret;
+}
+
+int my_strlen(char* string){
+    DBG_LIB_FN_CALLS("Entered", 1, "%s", string);
+    int ret = strlen(string); 
+    DBG_LIB_FN_CALLS("Exited", 0, "%s", string);
+    DBG_RET("%i", ret);
+    return ret;
+}
+
+long my_sysconf(int name){
+    DBG_LIB_FN_CALLS("Entered", 1, "%i", name);
+    long ret = sysconf(name); 
+    DBG_LIB_FN_CALLS("Exited", 0, "%i", name);
+    DBG_RET("%li", ret);
+    return ret;
+}
+
+long my_getpagesize(){
+    DBG_LIB_FN_CALLS("Entered", 1, "%s", "(void)");
+    int ret = getpagesize(); 
+    DBG_LIB_FN_CALLS("Exited", 0, "%s", "(void)");
+    DBG_RET("%i", ret);
+    return ret;
+}
+
+void* my_calloc(size_t nmemb, size_t size){
+    DBG_LIB_FN_CALLS("Entered", 1, "%zu %zu", nmemb, size);
+    void* ret = calloc(nmemb, size); 
+    DBG_LIB_FN_CALLS("Exited", 0, "%zu %zu", nmemb, size);
+    DBG_RET("%p", ret);
+    return ret;
+}
+
+void* my_realloc(void *ptr, size_t size){
+    DBG_LIB_FN_CALLS("Entered", 1, "%p %zu", ptr, size);
+    void* ret = realloc(ptr, size); 
+    DBG_LIB_FN_CALLS("Exited", 0, "%p %zu", ptr, size);
+    DBG_RET("%p", ret);
+    return ret;
+}
+
+void my_free(void *ptr){
+    DBG_LIB_FN_CALLS("Entered", 1, "%p", ptr);
+    free(ptr);
+    DBG_LIB_FN_CALLS("Exited", 0, "%p", ptr);
+    DBG_RET("%s", "(void)");
+    return;
+}
+
+int my_mkstemp(char* name){
+    DBG_LIB_FN_CALLS("Entered", 1, "%s", name);
+    int ret = mkstemp(name); 
+    DBG_LIB_FN_CALLS("Exited", 0, "%s", name);
+    DBG_RET("%i", ret);
+    return ret;
+}
+
+int my_remove(char* name){
+    DBG_LIB_FN_CALLS("Entered", 1, "%s", name);
+    int ret = remove(name); 
+    DBG_LIB_FN_CALLS("Exited", 0, "%s", name);
+    DBG_RET("%i", ret);
+    return ret;
+}
+
+int my_open(char* name, int flag){
+    DBG_SYS_FN_CALLS("Entered", 1, "%s %i", name, flag);
+    int ret = open(name, flag); 
+    DBG_SYS_FN_CALLS("Exited", 0, "%s %i", name, flag);
+    DBG_RET("%i", ret);
+    return ret;
+}
+
+int my_close(int fd){
+    DBG_SYS_FN_CALLS("Entered", 1, "%i", fd);
+    int ret = close(fd);
+    DBG_SYS_FN_CALLS("Exited", 0, "%i", fd);
+    DBG_RET("%i", ret);
+    return ret;
+}
+
+int my_read(int fd, char* buf, int nbytes){
+    DBG_SYS_FN_CALLS("Entered", 1, "%i %s %i", fd, buf, nbytes);
+    int ret = read(fd, buf, nbytes); 
+    DBG_SYS_FN_CALLS("Exited", 0, "%i %s %i", fd, buf, nbytes);
+    DBG_RET("%i", ret);
+    return ret;
+}
+
+int my_write(int fd, char* buf, int nbytes){
+    DBG_SYS_FN_CALLS("Entered", 1, "%i %s %i", fd, buf, nbytes);
+    int ret = write(fd, buf, nbytes); 
+    DBG_SYS_FN_CALLS("Exited", 0, "%i %s %i", fd, buf, nbytes);
+    DBG_RET("%i", ret);
+    return ret;
+}
+
+void my_open_create(char* enterOrExit, int firstCall, char* argvOpt, int create, int irw){
+    DBG_SYS_FN_CALLS(enterOrExit, firstCall, "%s %i %i", argvOpt, create, irw);
+}

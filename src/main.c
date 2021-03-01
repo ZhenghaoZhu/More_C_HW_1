@@ -21,29 +21,38 @@ void checkStatMode(mode_t statMode);
  * -v : Print version string of the program  DONE 
  * -h : The program should print a simple usage line on stderr and exit with a non-zero status code  DONE 
  * -p : Supports ARG as the name of a file that contains the password as the first line of the file  DONE  
- * -D : Debugging information printed to stdeer based on DBGVAL  TODO 
- * ● Debug value 0x00 (0d): no debug info printed
- * ● Debug value 0x01 (1d): print a message on immediate entry and right before the exit to every function
+ * -D : Debugging information printed to stdeer based on DBGVAL  DONE 
+ * ● Debug value 0x00 (0d): no debug info printed  DONE 
+ * ● Debug value 0x01 (1d): print a message on immediate entry and right before the exit to every function  DONE 
  *   in your code that you write, including main(), but not library calls you call. Print the name of the function
- *   and whether you're entering or exiting it.
+ *   and whether you're entering or exiting it.  DONE 
  * ● Debug value 0x02 (2d): print right before and right after calling any library call (e.g., from libc, libssl, 
- *   etc.). Print the function name and whether you're before or after calling it. 
+ *   etc.). Print the function name and whether you're before or after calling it.   DONE 
  * ● Debug value 0x04 (4d): print right before and right after calling any system call (e.g., open, read, write, 
- *   close). Print the syscall name and whether you're before or after calling it. 
+ *   close). Print the syscall name and whether you're before or after calling it.   DONE 
  * ● Debug value 0x10 (16d): print also arguments to any function for debug values 0x1 (upon entry), 0x2 
- *   (right before), and 0x4 (right before).
+ *   (right before), and 0x4 (right before).  DONE  
  * ● Debug value 0x20 (32d): print also return values (and errors if any) for any function for debug values 
- *   0x1 (right before return), 0x2 (right after), and 0x4 (right after).
+ *   0x1 (right before return), 0x2 (right after), and 0x4 (right after).  DONE  
  */
 int main(int argc, char *argv[], char *envp[]) {
-    int opt_d = 0, opt_e = 0, opt_v = 0, opt_p = 0, opt_D = 0;
+    int opt_d = 0, opt_e = 0, opt_v = 0, opt_p = 0, opt_D = 0, opt_s = 0;
     int opt, fileCount = 0;
     char* password = NULL;
     fdInPath = NULL;
     fdOutPath = NULL;
     char* debugString = NULL;
-    while ((opt = getopt(argc, argv, ":devhp:D:")) != -1) {
+    #ifdef EXTRA_CREDIT
+    while ((opt = my_getopt(argc, argv, ":devhp:D:s")) != -1) {
+    #else
+    while ((opt = my_getopt(argc, argv, ":devhp:D:")) != -1) {
+    #endif
         switch (opt) {
+            #ifdef EXTRA_CREDIT
+            case 's':
+                opt_s += 1;
+                break;
+            #endif
             case 'd':
                 opt_d += 1;
                 break;
@@ -53,12 +62,11 @@ int main(int argc, char *argv[], char *envp[]) {
             case 'v': 
                 opt_v += 1;
                 if(opt_v == 1){
-                    fprintf(stdout, "fenc version: %.1f \n", VERSION_STRING);
+                    my_fprintf(VERSION_STRING);
                 }
                 break;
             case 'h':
-                fprintf(stderr, "(1) Usage: %s [-devh] [-D DBGVAL] [-p PASSFILE] infile outfile\n", argv[0]);
-                exit(EXIT_FAILURE);
+                exitWithFailure();
             case 'p':
                 opt_p += 1;
                 if(getFilePassword(optarg) == 1){
@@ -68,7 +76,8 @@ int main(int argc, char *argv[], char *envp[]) {
             case 'D':
                 opt_D += 1;
                 debugString = optarg;
-                if((debugString[strlen(debugString) - 1] != 'd')){
+                char checkD = debugString[my_strlen(debugString) - 1];
+                if((checkD != 'd')){
                     exitWithFailure();
                 }
                 if(getDebugValue(debugString) == 1){
@@ -80,65 +89,65 @@ int main(int argc, char *argv[], char *envp[]) {
         }
     }
 
+    DBG_ORI_FN_CALLS("Entered", 1, "%i %p %p", argc, argv, envp);
+
+
     if(optind >= argc){
-        fprintf(stderr, "No infile/outfile provided. Please try again. \n");
+        my_fprintf("No infile/outfile provided. Please try again. \n");
         exitWithFailure();
     }
 
     if((argc - optind) > 2){
-        fprintf(stderr, "Too many arguments provided please try again. \n");
+        my_fprintf("Too many arguments provided please try again. \n");
         exitWithFailure();
     }
 
     if(opt_d >= 1 && opt_e >= 1){
-        fprintf(stderr, "You cannot have both -d and -e, please try again. \n");
+        my_fprintf("You cannot have both -d and -e, please try again. \n");
         exitWithFailure();
     }
 
     if(opt_d == 0 && opt_e == 0){
-        fprintf(stderr, "You need to provide either -e or -d, please try again. \n");
+        my_fprintf("You need to provide either -e or -d, please try again. \n");
         exitWithFailure();
     }
 
     if(opt_d > 1 || opt_e > 1 || opt_v > 1 || opt_p > 1 || opt_D > 1){
-        fprintf(stderr, "You cannot have multiple of the same flag, please try again. \n");
+        my_fprintf("You cannot have multiple of the same flag, please try again. \n");
         exitWithFailure();
     }
 
     if(opt_p < 1){
-        if(stdInPassword() == 1){
-            perror("stdInPassword");
+        if(stdInPassword(opt_s) == 1){
             exitWithFailure();
         }
     }
 
     struct stat fdInfileStat;
     struct stat fdOutfileStat;
-    // int checkFdIn = -1;
-    // int checkFdOut = -1;
     while(optind < argc){
         if(fileCount == 0){
-            if(strcmp(argv[optind], "-") != 0){
-                if(stat(argv[optind], &fdInfileStat) == -1){
-                    perror("stat");
+            if(my_strcmp(argv[optind], "-") != 0){
+                if(my_stat(argv[optind], &fdInfileStat) == -1){
+                    my_perror("stat");
                     exitWithFailure();
                 }
                 checkStatMode(fdInfileStat.st_mode);
-                if((access(argv[optind], F_OK) != -1) && (access(argv[optind], R_OK) == 0)){
-                    fdInPath = strdup(argv[optind]);
+                if((my_access(argv[optind], F_OK) != -1) && (my_access(argv[optind], R_OK) == 0)){
+                    fdInPath = my_strdup(argv[optind]);
                     if(fdInPath == NULL){
-                        perror("strdup");
+                        my_perror("strdup");
                         exitWithFailure();
                     }
-                    long testPages = sysconf(_SC_AVPHYS_PAGES);
-                    long long availableBytes = testPages * getpagesize();
+                    long testPages = my_sysconf(_SC_AVPHYS_PAGES);
+                    long availableBytes = testPages * my_getpagesize();
                     if(fdInfileStat.st_size > availableBytes){
-                        fprintf(stderr, "Available memory not sufficient for file encryption/decryption.\n");
+                        my_fprintf("Available memory not sufficient for file encryption/decryption.\n");
                         exitWithFailure();
                     }
                 }
                 else {
-                    perror("access (Read)");
+                    my_perror("access (Read)");
                     exitWithFailure();
                 }
             }
@@ -149,24 +158,23 @@ int main(int argc, char *argv[], char *envp[]) {
         else if(fileCount == 1){
             if(strcmp(argv[optind], "-") != 0){
                 if(stat(argv[optind], &fdOutfileStat) == -1){
-                    if(open(argv[optind], O_CREAT, S_IRWXU) == -1){
+                    my_open_create("Entered", 1, argv[optind], O_CREAT, S_IRWXU);
+                    int openCreateRet = open(argv[optind], O_CREAT, S_IRWXU);
+                    my_open_create("Exited", 0, argv[optind], O_CREAT, S_IRWXU);
+                    if(openCreateRet == -1){
                         perror("open");
-                        exitWithFailure();
-                    }
-                    if(stat(argv[optind], &fdOutfileStat) == -1){
-                        perror("stat");
                         exitWithFailure();
                     }
                 }
                 checkStatMode(fdOutfileStat.st_mode);
                 if(fdInPath != NULL && (fdInfileStat.st_ino == fdOutfileStat.st_ino)){
-                    fprintf(stderr, "Filepaths provided are the same, please provide filepaths to different files.\n");
+                    my_fprintf("Filepaths provided are the same, please provide filepaths to different files.\n");
                     exitWithFailure();
                 }
-                if((access(argv[optind], F_OK) != -1) && (access(argv[optind], W_OK) == 0)){
+                if((my_access(argv[optind], F_OK) != -1) && (my_access(argv[optind], W_OK) == 0)){
                     fdOutPath = strdup(argv[optind]);
                     if(fdOutPath == NULL){
-                        perror("strdup");
+                        my_perror("strdup");
                         exitWithFailure();
                     }
                 }
@@ -180,46 +188,57 @@ int main(int argc, char *argv[], char *envp[]) {
     }
 
     if(fileCount != 2){
-        fprintf(stderr, "No infile/outfile provided. Please try again. \n");
+        my_fprintf("No infile/outfile provided. Please try again. \n");
         exitWithFailure();
     }
 
     if(copyStart(fdInPath, fdOutPath, opt_e) == 1){
-        perror("startCopy");
+        my_perror("startCopy");
         exitWithFailure();
     }
 
-
-    fprintf(stderr, "curIn : %s, curOut: %s \n", fdInPath, fdOutPath);
-
     if(closeAll() == 1){
-        fprintf(stderr, "Usage: ./fenc [-devh] [-D DBGVAL] [-p PASSFILE] infile outfile\n");
+        my_fprintf("Usage: ./fenc [-devh] [-D DBGVAL] [-p PASSFILE] infile outfile\n");
         exit(EXIT_FAILURE);
     }
-
+    DBG_ORI_FN_CALLS("Exited", 0, "%i %p %p", argc, argv, envp);
+    DBG_RET("%i", 0);
+    return 0;
 }
 
 void exitWithFailure(void){
+    DBG_ORI_FN_CALLS("Entered", 1, "%s", "(void)");
     if(closeAll() == 1){
-        fprintf(stderr, "Usage: ./fenc [-devh] [-D DBGVAL] [-p PASSFILE] infile outfile\n");
+        my_fprintf("Usage: ./fenc [-devh] [-D DBGVAL] [-p PASSFILE] infile outfile\n Trying to free and exit program failed. \n");
+        DBG_ORI_FN_CALLS("Exited", 0, "%s", "(void)");
+        DBG_RET("%s", "(void)");
         exit(EXIT_FAILURE);
     }
-    fprintf(stderr, "Usage: ./fenc [-devh] [-D DBGVAL] [-p PASSFILE] infile outfile\n");
+
+    my_fprintf("Usage: ./fenc [-devh] [-D DBGVAL] [-p PASSFILE] infile outfile\n");
+    DBG_ORI_FN_CALLS("Exited", 0, "%s", "(void)");
+    DBG_RET("%s", "(void)");
     exit(EXIT_FAILURE);
 }
 
 void checkStatMode(mode_t statMode){
+    DBG_ORI_FN_CALLS("Entered", 1, "%s", "mode_t statMode");
     if(statMode & S_IFDIR){
-        perror("stat (directory, not file)");
+        my_perror("stat (directory, not file)");
+        DBG_ORI_FN_CALLS("Exited", 0, "%s", "mode_t statMode");
         exitWithFailure();
     }
     if(statMode & S_IFCHR){
-        perror("stat (character device, not file)");
+        my_perror("stat (character device, not file)");
+        DBG_ORI_FN_CALLS("Exited", 0, "%s", "mode_t statMode");
         exitWithFailure();
     }
     if(statMode & S_IFBLK){
-        perror("stat (block device, not file)");
+        my_perror("stat (block device, not file)");
+        DBG_ORI_FN_CALLS("Exited", 0, "%s", "mode_t statMode");
         exitWithFailure();
     }
+    DBG_ORI_FN_CALLS("Exited", 0, "%s", "mode_t statMode");
+    DBG_RET("%s", "(void)");
     return;
 }
