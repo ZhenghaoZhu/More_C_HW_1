@@ -19,7 +19,7 @@ DFLAGS := -g -DDEBUG -DCOLOR
 PRINT_STAMENTS := -DERROR -DSUCCESS -DWARN -DINFO
 
 STD := -std=gnu11
-LIBS := -lm
+LIBS := -lm -lssl -lcrypto
 
 CFLAGS += $(STD)
 

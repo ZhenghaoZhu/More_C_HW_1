@@ -8,7 +8,7 @@
 #include <errno.h>
 #include <openssl/evp.h>
 #include <openssl/aes.h>
-#include<stdarg.h>
+#include <stdarg.h>
 #include "fenc.h"
 
 static int debugNone = 0;
@@ -35,6 +35,12 @@ int getDebugValue(char* debugString){
     debugSysCalls = numberHolder & 4;
     debugArgs = numberHolder & 16;
     debugRet = numberHolder & 32;
+    if((numberHolder > 0) && (debugArgs || debugRet) && !(debugFuncCalls || debugLibCalls || debugSysCalls)){
+        my_fprintf("Provided debug value missing function, library function, or system call choice. Please try again \n");
+        DBG_ORI_FN_CALLS("Exited", 0, "%s", debugString);
+        DBG_RET("%i", 1);
+        return 1;
+    }
     if((numberHolder > 0) && ((debugNone + debugFuncCalls + debugLibCalls + debugSysCalls + debugArgs + debugRet) == 0)){
         my_fprintf("Non-valid debug number provided, please try again \n");
         DBG_ORI_FN_CALLS("Exited", 0, "%s", debugString);
@@ -279,15 +285,16 @@ int decryptBuf(){
     return 0;
 }
 
-// int initCTX(EVP_CIPHER_CTX *ctx, int do_encrypt){
-//     unsigned char key[] = "0123456789abcdeF";
-//     unsigned char iv[] = "1234567887654321";
-//     EVP_CIPHER_CTX_init(&ctx);
+int initCTX(EVP_CIPHER_CTX *ctx, int do_encrypt){
+    unsigned char key[] = "0123456789abcdeF";
+    unsigned char iv[] = "1234567887654321";
+    EVP_CIPHER_CTX_init(ctx);
 //     EVP_CipherInit_ex(&ctx, EVP_aes_128_cbc(), NULL, NULL, NULL, do_encrypt);
 //     OPENSSL_assert(EVP_CIPHER_CTX_key_length(&ctx) == 16);
 //     OPENSSL_assert(EVP_CIPHER_CTX_iv_length(&ctx) == 16);
 //     EVP_CipherInit_ex(&ctx, NULL, NULL, key, iv, do_encrypt);
-// }
+    return 1;
+}
 
 int closeAll(){
     DBG_ORI_FN_CALLS("Entered", 1, "%s", "(void)");
