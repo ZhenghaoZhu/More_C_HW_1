@@ -47,7 +47,7 @@ clean:
 		rm -rf $(BLDD)
 		rm -rf $(EXEC)
 		
-tests: 
+tests: clean all
 		bash -c $(TLD)/test3.sh
 		bash -c $(TLD)/test2.sh
 		bash -c $(TLD)/test1.sh
@@ -55,7 +55,6 @@ tests:
 wipe:
 		truncate -s 0 $(TFLD)/middleFile.txt
 		truncate -s 0 $(TFLD)/outFile.txt
-		truncate -s 0 $(TFLD)/bigOutFile.txt
 
 .PRECIOUS: $(BLDD)/*.d
 -include $(BLDD)/*.d
