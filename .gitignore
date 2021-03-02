@@ -11,3 +11,4 @@ testFiles/big*.txt
 testFiles/small*.txt
 testFiles/temp*.txt
 .gitignore
+test4.sh

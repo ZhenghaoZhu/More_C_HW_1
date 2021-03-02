@@ -48,7 +48,7 @@ int stdInPassword(int second_time);
 int copyStart(char* fdInPath, char* fdOutPath, int opt_e);
 void strToSha256(char* curStr, char hashBuf[65]);
 int initCTX(EVP_CIPHER_CTX *ctx, int do_encrypt);
-int encryptBuf(int curFdOut, char* curBuf, int curBufLen);
+int encryptBuf(int curFdOut, unsigned char* curBuf, const unsigned char *pwdKey,int curBufLen);
 int decryptBuf();
 int closeAll();
 

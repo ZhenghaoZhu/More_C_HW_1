@@ -1,1 +1,21 @@
-Empty template and README for HW1
+# Homework 1 
+
+The include folder has only one file, fenc.h, which has all the function headers
+and #defines used throghout main.c and fenc.c
+
+The src folder has fenc.c which handles password related tasks, reading/writing files, and the
+decrypt/encrypt functionality.
+It also contains all the wrapper functions used throghout both .c files.
+
+The testFiles folder contains multiple .txt files which I used in my regression tests to test if 
+files were properly saved or copied over to.
+
+The tests folder has three regression tests which test the following: handling of CLI args, error handling of 
+erroneous read/write, and hash comparison.
+
+The .gitignore has multiple lines of files I used for testing but didn't include as I thought they were not necessary
+for the regression tests.
+
+The Makefile is utilized to compile the program into .o files which are later compiled into an executable. There are lines
+specifying what libraries to use during compilation, lssl and lcrypto for example, and there are targets such as clean and 
+tests which delete .o files and run tests in the tests folder, respectively.
