@@ -193,7 +193,7 @@ int main(int argc, char *argv[], char *envp[]) {
     }
 
     if(copyStart(fdInPath, fdOutPath, opt_e) == 1){
-        my_perror("startCopy");
+        my_fprintf("copyStart failed, please try again \n");
         exitWithFailure();
     }
 
@@ -209,13 +209,20 @@ int main(int argc, char *argv[], char *envp[]) {
 void exitWithFailure(void){
     DBG_ORI_FN_CALLS("Entered", 1, "%s", "(void)");
     if(closeAll() == 1){
-        my_fprintf("Usage: ./fenc [-devh] [-D DBGVAL] [-p PASSFILE] infile outfile\n Trying to free and exit program failed. \n");
+        #ifdef EXTRA_CREDIT
+        my_fprintf("Usage: ./fenc [-devhs] [-D DBGVAL] [-p PASSFILE] infile outfile\n Trying to free and exit program failed. \n");
+        #else
+        my_fprintf("Usage: ./fenc [-devhs] [-D DBGVAL] [-p PASSFILE] infile outfile\n Trying to free and exit program failed. \n");
+        #endif 
         DBG_ORI_FN_CALLS("Exited", 0, "%s", "(void)");
         DBG_RET("%s", "(void)");
         exit(EXIT_FAILURE);
     }
-
+    #ifdef EXTRA_CREDIT
+    my_fprintf("Usage: ./fenc [-devhs] [-D DBGVAL] [-p PASSFILE] infile outfile\n");
+    #else
     my_fprintf("Usage: ./fenc [-devh] [-D DBGVAL] [-p PASSFILE] infile outfile\n");
+    #endif    
     DBG_ORI_FN_CALLS("Exited", 0, "%s", "(void)");
     DBG_RET("%s", "(void)");
     exit(EXIT_FAILURE);

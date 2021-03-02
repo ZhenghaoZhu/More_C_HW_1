@@ -52,6 +52,7 @@ tests:
 		bash $(TLD)/test3.sh
 
 wipe:
+		truncate -s 0 $(TFLD)/middleFile.txt
 		truncate -s 0 $(TFLD)/outFile.txt
 		truncate -s 0 $(TFLD)/bigOutFile.txt
 

@@ -2,7 +2,8 @@
 
 #define VERSION_STRING "Fenc version 1.0 \n"
 #define PWD_FILE_READ 8
-#define EXTRA_CREDIT 1
+#define HASH_LENGTH 64
+// #define EXTRA_CREDIT 1
 
 #define DBG_ORI_FN_CALLS(enteredOrExit, firstCall, FORMAT, ...) \
     if (getDebugFuncCalls()) { \
@@ -45,9 +46,10 @@ int getDebugValue(char* debugString);
 int getFilePassword(char* curFile);
 int stdInPassword(int second_time);
 int copyStart(char* fdInPath, char* fdOutPath, int opt_e);
+void strToSha256(char* curStr, char hashBuf[65]);
+int initCTX(EVP_CIPHER_CTX *ctx, int do_encrypt);
 int encryptBuf(int curFdOut, char* curBuf, int curBufLen);
 int decryptBuf();
-int initCTX(EVP_CIPHER_CTX *ctx, int do_encrypt);
 int closeAll();
 
 int getDebugFuncCalls();

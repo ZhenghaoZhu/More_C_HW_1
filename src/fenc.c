@@ -8,6 +8,7 @@
 #include <errno.h>
 #include <openssl/evp.h>
 #include <openssl/aes.h>
+#include <openssl/sha.h>
 #include <stdarg.h>
 #include "fenc.h"
 
@@ -19,6 +20,7 @@ static int debugArgs = 0;
 static int debugRet = 0;
 
 static char* pwdBuf = NULL;
+static char* shaPwdBuf = NULL;
 static char* readInBuf = NULL;
 
 int getDebugValue(char* debugString){
@@ -137,6 +139,7 @@ int stdInPassword(int second_time){
         DBG_RET("%i", 1);
         return 1;
     }
+
     if(second_time){
         char* tmpBuf = strdup(pwdBuf);
         printf("First time: %s\n", pwdBuf);
@@ -150,6 +153,7 @@ int stdInPassword(int second_time){
         }
         my_free(tmpBuf);
     }
+
     DBG_ORI_FN_CALLS("Exited", 0, "%s", "(void)");
     DBG_RET("%i", 0);
     return 0;
@@ -187,16 +191,57 @@ int copyStart(char* fdInPath, char* fdOutPath, int opt_e){
     int curReadRet = 0;
     int readRet = 0;
     int writeRet = 0;
+    if(opt_e){ // Encrypting
+        char hashBuf[65];
+        char* computedHash = (char*)my_calloc(65, sizeof(char));
+        strToSha256(pwdBuf, hashBuf);
+        strncat(computedHash, &hashBuf[0], HASH_LENGTH);
+        fprintf(stderr, "Encrypt Password: %s Hash String: %s with len: %li \n", pwdBuf, computedHash, strlen(computedHash));
+        writeRet = my_write(tempFdOut, computedHash, HASH_LENGTH);
+        my_free(computedHash);
+        if(writeRet != HASH_LENGTH){
+            my_perror("write");
+            goto closeEverything;
+        }
+    }
+    else{ // Decrypting
+        char hashBuf[65];
+        char* computedHash = (char*)my_calloc(65, sizeof(char));
+        char* givenHash = (char*)my_calloc(65, sizeof(char));
+        strToSha256(pwdBuf, hashBuf);
+        strncat(computedHash, &hashBuf[0], HASH_LENGTH);
+        readRet = my_read(fdIn, givenHash, HASH_LENGTH);
+        fprintf(stderr, "Decrypt Password: %s Hash String: %s with len: %li \n", pwdBuf, givenHash, strlen(givenHash));
+        fprintf(stderr, "Computed Hash: %s \n", computedHash);
+        if(strcmp(givenHash, computedHash) != 0){
+            my_fprintf("Provided password doesn't match with hash in file, please try again \n");
+            my_free(computedHash);
+            my_free(givenHash);
+            goto closeEverything;
+        }
+        my_free(computedHash);
+        my_free(givenHash);
+        if(readRet != HASH_LENGTH){
+            my_perror("read");
+            goto closeEverything;
+        }
+    }
+
     while((readRet = my_read(fdIn, readInBuf, pageSize)) > 0){
         curReadRet = readRet;
         if(readRet == pageSize){
             //  TODO  Encrypt/Decrypt with password
             writeRet = my_write(tempFdOut, readInBuf, curReadRet);
-            if(writeRet < 0 || writeRet < curReadRet || writeRet > curReadRet){
+            if(getenv("BAD_WRITE") != NULL){
+                my_fprintf("Injected error to write \n");
+                writeRet = -1;
+            }
+            if(writeRet < 0 || (writeRet < curReadRet) || (writeRet > curReadRet)){
                 my_perror("write");
+                closeEverything:
+                my_remove(tmpFilePath);
                 if(my_close(fdIn) == -1){
                     my_perror("close");
-                    my_remove(tmpFilePath);
                     DBG_ORI_FN_CALLS("Exited", 0, "%s %s %i", fdInPath, fdOutPath, opt_e);
                     DBG_RET("%i", 1);
                     return 1;
@@ -247,7 +292,7 @@ int copyStart(char* fdInPath, char* fdOutPath, int opt_e){
         return 1;
     }
 
-    if(remove(fdOutPath) == -1){
+    if(my_remove(fdOutPath) == -1){
         my_perror("remove");
         my_remove(tmpFilePath);
         DBG_ORI_FN_CALLS("Exited", 0, "%s %s %i", fdInPath, fdOutPath, opt_e);
@@ -265,6 +310,24 @@ int copyStart(char* fdInPath, char* fdOutPath, int opt_e){
 
     DBG_RET("%i", 0);
     return 0;
+}
+
+
+/************************************************************/
+/*                    CRYPTO FUNCTIONS                      */
+/************************************************************/
+
+void strToSha256(char* curStr, char hashBuf[65]){
+    unsigned char hash32Container[SHA256_DIGEST_LENGTH];
+    SHA256_CTX sha256;
+    SHA256_Init(&sha256);
+    SHA256_Update(&sha256, curStr, strlen(curStr));
+    SHA256_Final(hash32Container, &sha256);
+    for(int i = 0; i < SHA256_DIGEST_LENGTH; i++)
+    {
+        sprintf(hashBuf + (i * 2), "%02x", hash32Container[i]);
+    }
+    hashBuf[64] = 0;
 }
 
 int encryptBuf(int curFdOut, char* curBuf, int curBufLen){
