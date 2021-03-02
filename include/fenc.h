@@ -62,6 +62,7 @@ int my_fprintf(char* output);
 void my_perror(char* output);
 int my_strcmp(char* c1, char* c2);
 int my_access(char* name, int type);
+int my_rename(char* old, char* new);
 int my_stat(char* file, struct stat* buf);
 char* my_strdup(char* string);
 int my_strlen(char* string);

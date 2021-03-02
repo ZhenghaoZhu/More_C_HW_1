@@ -142,10 +142,7 @@ int stdInPassword(int second_time){
 
     if(second_time){
         char* tmpBuf = strdup(pwdBuf);
-        printf("First time: %s\n", pwdBuf);
-        fflush(stdout);
         pwdBufSecond = getpass("Please confirm password by retyping it: ");
-        printf("First time: %s Second time : %s \n", tmpBuf, pwdBufSecond);
         if(strcmp(tmpBuf, pwdBufSecond) != 0){
             my_fprintf("Passwords don't match. Please try again \n");
             my_free(tmpBuf);
@@ -339,7 +336,7 @@ int copyStart(char* fdInPath, char* fdOutPath, int opt_e, int opt_i){
         return 1;
     }
     
-    if(rename(tmpFilePath, fdOutPath) == -1){
+    if(my_rename(tmpFilePath, fdOutPath) == -1){
         my_perror("rename");
         my_remove(tmpFilePath);
         DBG_ORI_FN_CALLS("Exited", 0, "%s %s %i", fdInPath, fdOutPath, opt_e);
@@ -368,6 +365,7 @@ int copyStart(char* fdInPath, char* fdOutPath, int opt_e, int opt_i){
 /************************************************************/
 
 void strToSha256(char* curStr, char hashBuf[65]){
+    DBG_ORI_FN_CALLS("Entered", 1, "%s %s", curStr, "hashBuf");
     unsigned char hash32Container[SHA256_DIGEST_LENGTH];
     SHA256_CTX sha256;
     SHA256_Init(&sha256);
@@ -378,10 +376,11 @@ void strToSha256(char* curStr, char hashBuf[65]){
         sprintf(hashBuf + (i * 2), "%02x", hash32Container[i]);
     }
     hashBuf[64] = 0;
-    DBG_ORI_FN_CALLS("Exited", 0, "%s", "(void)");
+    DBG_ORI_FN_CALLS("Exited", 0, "%s %s", curStr, "hashBuf");
 }
 
 int encryptBuf(int curFdOut, unsigned char* curBuf, const unsigned char *pwdKey, int curBufLen, int pageCounter){
+    DBG_ORI_FN_CALLS("Entered", 1, "%i %s %s %i", curFdOut, curBuf, pwdKey, curBufLen);
     int cipherBufLen = 0;
     unsigned char iv[16] = {pageCounter};
     unsigned char* cipherBuf;
@@ -543,6 +542,14 @@ int my_access(char* name, int type){
     DBG_LIB_FN_CALLS("Entered", 1, "%s %i", name, type);
     int ret = access(name, type);
     DBG_LIB_FN_CALLS("Exited", 0, "%s %i", name, type);
+    DBG_RET("%i", ret);
+    return ret;
+}
+
+int my_rename(char* old, char* new){
+    DBG_LIB_FN_CALLS("Entered", 1, "%s %s", old, new);
+    int ret = rename(old, new);
+    DBG_LIB_FN_CALLS("Exited", 0, "%s %s", old, new);
     DBG_RET("%i", ret);
     return ret;
 }

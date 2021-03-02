@@ -7,7 +7,8 @@ The src folder has fenc.c which handles password related tasks, reading/writing 
 decrypt/encrypt functionality. The decrypt/encrypt code was taken from https://wiki.openssl.org/index.php/EVP_Symmetric_Encryption_and_Decryption.
 The wiki's example doesn't malloc their cipher buffer, which is one difference from my implementation. Apart from that, the code is the same as 
 in the wiki. The SHA256 function is from https://stackoverflow.com/questions/2262386/generate-sha256-with-openssl-and-c, the code is from the top answer.
-None of it was really changed, I only renamed the variables for better documentation purposes.
+None of it was really changed, I only renamed the variables for better documentation purposes. The EVP_Digest functions were confusing so I just stuck with this
+as it worked well. I will rush less so I have time to explicitly ask Professor Zadok for permission in regards to this.
 
 It also contains all the wrapper functions used throghout both .c files.
 
