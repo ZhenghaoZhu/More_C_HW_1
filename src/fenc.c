@@ -394,7 +394,14 @@ int encryptBuf(int curFdOut, unsigned char* curBuf, const unsigned char *pwdKey,
     }
     EVP_EncryptInit_ex(ctx, EVP_aes_256_ctr(), NULL, pwdKey, iv);
     cipherBuf = (unsigned char*)my_calloc(curBufLen, sizeof(char));
-    EVP_EncryptUpdate(ctx, cipherBuf, &cipherBufLen, curBuf, curBufLen);
+    if(EVP_EncryptUpdate(ctx, cipherBuf, &cipherBufLen, curBuf, curBufLen) != 1){
+        my_fprintf("EVP_DecryptUpdate failed, please try again \n");
+        my_free(cipherBuf);
+        EVP_CIPHER_CTX_free(ctx);
+        DBG_RET("%i", 1);
+        DBG_ORI_FN_CALLS("Exited", 0, "%i %s %s %i", curFdOut, curBuf, pwdKey, curBufLen);
+        return 1;
+    }
     int writeRet = write(curFdOut, cipherBuf, cipherBufLen);
     if(writeRet != cipherBufLen){
         my_fprintf("Writing encrypted to file failed, please try again \n");
@@ -425,12 +432,20 @@ int decryptBuf(int curFdOut, unsigned char* curBuf, const unsigned char *pwdKey,
     }
     if(EVP_DecryptInit_ex(ctx, EVP_aes_256_ctr(), NULL, pwdKey, iv) != 1){
         my_fprintf("EVP_DecryptInit_ex failed, please try again \n");
+        EVP_CIPHER_CTX_free(ctx);
         DBG_RET("%i", 1);
         DBG_ORI_FN_CALLS("Exited", 0, "%i %s %s %i", curFdOut, curBuf, pwdKey, curBufLen);
         return 1;
     }
     cipherBuf = (unsigned char*)my_calloc(curBufLen, sizeof(char));
-    EVP_DecryptUpdate(ctx, cipherBuf, &cipherBufLen, curBuf, curBufLen);
+    if(EVP_DecryptUpdate(ctx, cipherBuf, &cipherBufLen, curBuf, curBufLen) != 1){
+        my_fprintf("EVP_DecryptUpdate failed, please try again \n");
+        my_free(cipherBuf);
+        EVP_CIPHER_CTX_free(ctx);
+        DBG_RET("%i", 1);
+        DBG_ORI_FN_CALLS("Exited", 0, "%i %s %s %i", curFdOut, curBuf, pwdKey, curBufLen);
+        return 1;
+    }
     int writeRet = write(curFdOut, cipherBuf, cipherBufLen);
     if(writeRet != cipherBufLen){
         my_fprintf("Writing encrypted to file failed, please try again \n");

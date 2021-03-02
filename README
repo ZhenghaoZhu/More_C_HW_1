@@ -1,10 +1,13 @@
-# Homework 1 
+# Homework 1 Structure Explanation
 
 The include folder has only one file, fenc.h, which has all the function headers
 and #defines used throghout main.c and fenc.c
 
 The src folder has fenc.c which handles password related tasks, reading/writing files, and the
 decrypt/encrypt functionality. The decrypt/encrypt code was taken from https://wiki.openssl.org/index.php/EVP_Symmetric_Encryption_and_Decryption.
+The wiki's example doesn't malloc their cipher buffer, which is one difference from my implementation. Apart from that, the code is the same as 
+in the wiki. The SHA256 function is from https://stackoverflow.com/questions/2262386/generate-sha256-with-openssl-and-c, the code is from the top answer.
+None of it was really changed, I only renamed the variables for better documentation purposes.
 
 It also contains all the wrapper functions used throghout both .c files.
 
@@ -20,3 +23,18 @@ for the regression tests.
 The Makefile is utilized to compile the program into .o files which are later compiled into an executable. There are lines
 specifying what libraries to use during compilation, lssl and lcrypto for example, and there are targets such as clean and 
 tests which delete .o files and run tests in the tests folder, respectively.
+
+# Some Notes
+
+- The read/write malloc algorithm is optimal as it only allocates one page size and uses that throughout the whole copying and encrypting/decrypting process.
+
+- The password reading from a file is not optimal and requires the use of realloc as we can't just read a "chunk" of the password, this is assuming the password
+provided from the file is larger than the page size.
+
+- There are a lot of wrapper functions at the bottom of fenc.c as the debugging feature required them. They make use of some macros found in fenc.h, this were made
+to shorten the code.
+
+- The "make tests" command cleans the directory and re-compiles all files so tests are always run in the newest build
+
+- The tests employ of "make wipe" to clean the output files as necessary.
+

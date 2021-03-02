@@ -43,7 +43,7 @@ int main(int argc, char *argv[], char *envp[]) {
     fdOutPath = NULL;
     char* debugString = NULL;
     #ifdef EXTRA_CREDIT
-    while ((opt = my_getopt(argc, argv, ":devhp:D:si")) != -1) {
+    while ((opt = my_getopt(argc, argv, ":devhsip:D:")) != -1) {
     #else
     while ((opt = my_getopt(argc, argv, ":devhp:D:")) != -1) {
     #endif
@@ -121,10 +121,6 @@ int main(int argc, char *argv[], char *envp[]) {
     }
 
     if(opt_p < 1){
-        if(opt_s > 0){
-            my_fprintf("You cannot use the -s flag without the -p flag, please try again. \n");
-            exitWithFailure();
-        }
         if(stdInPassword(opt_s) == 1){
             exitWithFailure();
         }
@@ -185,6 +181,10 @@ int main(int argc, char *argv[], char *envp[]) {
                         my_perror("strdup");
                         exitWithFailure();
                     }
+                }
+                else {
+                    my_perror("access (Write)");
+                    exitWithFailure();
                 }
             }
             else {

@@ -48,6 +48,7 @@ clean:
 		rm -rf $(EXEC)
 		
 tests: clean all
+		echo "\n\n"
 		bash -c $(TLD)/test3.sh
 		bash -c $(TLD)/test2.sh
 		bash -c $(TLD)/test1.sh
