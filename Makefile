@@ -45,11 +45,12 @@ $(BLDD)/%.o: $(SRCD)/%.c
 
 clean:
 		rm -rf $(BLDD)
+		rm -rf $(EXEC)
 		
 tests: 
-		bash $(TLD)/test1.sh
-		bash $(TLD)/test2.sh
-		bash $(TLD)/test3.sh
+		bash -c $(TLD)/test3.sh
+		bash -c $(TLD)/test2.sh
+		bash -c $(TLD)/test1.sh
 
 wipe:
 		truncate -s 0 $(TFLD)/middleFile.txt

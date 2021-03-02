@@ -36,14 +36,14 @@ void checkStatMode(mode_t statMode);
  *   0x1 (right before return), 0x2 (right after), and 0x4 (right after).  DONE  
  */
 int main(int argc, char *argv[], char *envp[]) {
-    int opt_d = 0, opt_e = 0, opt_v = 0, opt_p = 0, opt_D = 0, opt_s = 0;
+    int opt_d = 0, opt_e = 0, opt_v = 0, opt_p = 0, opt_D = 0, opt_s = 0, opt_i = 0;
     int opt, fileCount = 0;
     char* password = NULL;
     fdInPath = NULL;
     fdOutPath = NULL;
     char* debugString = NULL;
     #ifdef EXTRA_CREDIT
-    while ((opt = my_getopt(argc, argv, ":devhp:D:s")) != -1) {
+    while ((opt = my_getopt(argc, argv, ":devhp:D:si")) != -1) {
     #else
     while ((opt = my_getopt(argc, argv, ":devhp:D:")) != -1) {
     #endif
@@ -51,6 +51,9 @@ int main(int argc, char *argv[], char *envp[]) {
             #ifdef EXTRA_CREDIT
             case 's':
                 opt_s += 1;
+                break;
+            case 'i':
+                opt_i += 1;
                 break;
             #endif
             case 'd':
@@ -112,16 +115,21 @@ int main(int argc, char *argv[], char *envp[]) {
         exitWithFailure();
     }
 
-    if(opt_d > 1 || opt_e > 1 || opt_v > 1 || opt_p > 1 || opt_D > 1){
+    if(opt_d > 1 || opt_e > 1 || opt_v > 1 || opt_p > 1 || opt_D > 1 || opt_s > 1 || opt_i > 1){
         my_fprintf("You cannot have multiple of the same flag, please try again. \n");
         exitWithFailure();
     }
 
     if(opt_p < 1){
+        if(opt_s > 0){
+            my_fprintf("You cannot use the -s flag without the -p flag, please try again. \n");
+            exitWithFailure();
+        }
         if(stdInPassword(opt_s) == 1){
             exitWithFailure();
         }
     }
+
 
     struct stat fdInfileStat;
     struct stat fdOutfileStat;
@@ -192,7 +200,7 @@ int main(int argc, char *argv[], char *envp[]) {
         exitWithFailure();
     }
 
-    if(copyStart(fdInPath, fdOutPath, opt_e) == 1){
+    if(copyStart(fdInPath, fdOutPath, opt_e, opt_i) == 1){
         my_fprintf("copyStart failed, please try again \n");
         exitWithFailure();
     }

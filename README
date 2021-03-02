@@ -4,7 +4,8 @@ The include folder has only one file, fenc.h, which has all the function headers
 and #defines used throghout main.c and fenc.c
 
 The src folder has fenc.c which handles password related tasks, reading/writing files, and the
-decrypt/encrypt functionality.
+decrypt/encrypt functionality. The decrypt/encrypt code was taken from https://wiki.openssl.org/index.php/EVP_Symmetric_Encryption_and_Decryption.
+
 It also contains all the wrapper functions used throghout both .c files.
 
 The testFiles folder contains multiple .txt files which I used in my regression tests to test if 

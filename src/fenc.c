@@ -159,7 +159,7 @@ int stdInPassword(int second_time){
     return 0;
 }
 
-int copyStart(char* fdInPath, char* fdOutPath, int opt_e){
+int copyStart(char* fdInPath, char* fdOutPath, int opt_e, int opt_i){
     DBG_ORI_FN_CALLS("Entered", 1, "%s %s %i", fdInPath, fdOutPath, opt_e);
     int pageSize = my_getpagesize();
     char* tmpBuf = NULL;
@@ -195,12 +195,10 @@ int copyStart(char* fdInPath, char* fdOutPath, int opt_e){
     char* computedHash = NULL;
     char* givenHash = NULL;
     if(opt_e){ // Encrypting
-        printf("Getting password hash \n");
         char hashBuf[65];
         computedHashOptE = (char*)my_calloc(65, sizeof(char));
         strToSha256(pwdBuf, hashBuf);
         strncat(computedHashOptE, &hashBuf[0], HASH_LENGTH);
-        fprintf(stderr, "Hash String: %s \n", computedHashOptE);
         writeRet = my_write(tempFdOut, computedHashOptE, HASH_LENGTH);
         if(writeRet != HASH_LENGTH){
             my_perror("write");
@@ -208,18 +206,14 @@ int copyStart(char* fdInPath, char* fdOutPath, int opt_e){
         }
     }
     else{ // Decrypting
-        printf("Comparing hashes \n");
         char hashBuf[65];
         computedHash = (char*)my_calloc(65, sizeof(char));
         givenHash = (char*)my_calloc(65, sizeof(char));
         strToSha256(pwdBuf, hashBuf);
         strncat(computedHash, &hashBuf[0], HASH_LENGTH);
         readRet = my_read(fdIn, givenHash, HASH_LENGTH);
-        fprintf(stderr, "Computed Hash: %s \n", computedHash);
-        if(strcmp(givenHash, computedHash) != 0){
+        if(readRet < HASH_LENGTH || strcmp(givenHash, computedHash) != 0){
             my_fprintf("Provided password doesn't match with hash in file, please try again \n");
-            my_free(computedHash);
-            my_free(givenHash);
             goto closeEverything;
         }
         if(readRet != HASH_LENGTH){
@@ -227,19 +221,36 @@ int copyStart(char* fdInPath, char* fdOutPath, int opt_e){
             goto closeEverything;
         }
     }
-
+    
+    int pageCounter = 0;
     while((readRet = my_read(fdIn, readInBuf, pageSize)) > 0){
         curReadRet = readRet;
         if(readRet == pageSize){
             if(opt_e == 1){
-                writeRet = encryptBuf(tempFdOut, (unsigned char*)readInBuf, (const unsigned char*)computedHashOptE, readRet);
+                #ifdef EXTRA_CREDIT
+                if(opt_i){
+                    pageCounter++;
+                }
+                writeRet = encryptBuf(tempFdOut, (unsigned char*)readInBuf, (const unsigned char*)computedHashOptE, readRet, pageCounter);
+                #else
+                writeRet = encryptBuf(tempFdOut, (unsigned char*)readInBuf, (const unsigned char*)computedHashOptE, readRet, pageCounter);
+                #endif
             }
             else{
-                writeRet = decryptBuf(tempFdOut, (unsigned char*)readInBuf, (const unsigned char*)computedHash, readRet);
+                #ifdef EXTRA_CREDIT
+                if(opt_i){
+                    pageCounter++;
+                }
+                writeRet = decryptBuf(tempFdOut, (unsigned char*)readInBuf, (const unsigned char*)computedHash, readRet, pageCounter);
+                #else
+                writeRet = decryptBuf(tempFdOut, (unsigned char*)readInBuf, (const unsigned char*)computedHash, readRet, pageCounter);
+                #endif
+                
             }
             
             if(getenv("BAD_WRITE") != NULL){
                 my_fprintf("Injected error to write \n");
+                errno = EIO;
                 writeRet = -1;
             }
             if(writeRet == 1 || writeRet == -1){
@@ -298,12 +309,10 @@ int copyStart(char* fdInPath, char* fdOutPath, int opt_e){
 
     readInBuf[curReadRet] = '\0';
     if(opt_e == 1){
-        printf("E pwdKey: %s \n", computedHashOptE);
-        writeRet = encryptBuf(tempFdOut, (unsigned char*)readInBuf, (const unsigned char*)computedHashOptE, readRet);
+        writeRet = encryptBuf(tempFdOut, (unsigned char*)readInBuf, (const unsigned char*)pwdBuf, readRet, pageCounter);
     }
     else{
-        printf("D pwdKey: %s \n", computedHash);
-        writeRet = decryptBuf(tempFdOut, (unsigned char*)readInBuf, (const unsigned char*)computedHash, readRet);
+        writeRet = decryptBuf(tempFdOut, (unsigned char*)readInBuf, (const unsigned char*)pwdBuf, readRet, pageCounter);
     }
 
     if(writeRet == 1){
@@ -348,6 +357,7 @@ int copyStart(char* fdInPath, char* fdOutPath, int opt_e){
         my_free(computedHashOptE);
     }
 
+    DBG_ORI_FN_CALLS("Exited", 0, "%s %s %i", fdInPath, fdOutPath, opt_e);
     DBG_RET("%i", 0);
     return 0;
 }
@@ -368,55 +378,72 @@ void strToSha256(char* curStr, char hashBuf[65]){
         sprintf(hashBuf + (i * 2), "%02x", hash32Container[i]);
     }
     hashBuf[64] = 0;
+    DBG_ORI_FN_CALLS("Exited", 0, "%s", "(void)");
 }
 
-int encryptBuf(int curFdOut, unsigned char* curBuf, const unsigned char *pwdKey,int curBufLen){
-    printf("Encrypting Start with pwdKey: %s\n", pwdKey);
+int encryptBuf(int curFdOut, unsigned char* curBuf, const unsigned char *pwdKey, int curBufLen, int pageCounter){
     int cipherBufLen = 0;
-    unsigned char iv = '0';
+    unsigned char iv[16] = {pageCounter};
     unsigned char* cipherBuf;
     EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
     if(ctx == NULL){
         my_fprintf("CTX init failed, please try again \n");
+        DBG_ORI_FN_CALLS("Exited", 0, "%i %s %s %i", curFdOut, curBuf, pwdKey, curBufLen);
+        DBG_RET("%i", 1);
         return 1;
     }
-    EVP_EncryptInit_ex(ctx, EVP_aes_256_ctr(), NULL, pwdKey, &iv);
+    EVP_EncryptInit_ex(ctx, EVP_aes_256_ctr(), NULL, pwdKey, iv);
     cipherBuf = (unsigned char*)my_calloc(curBufLen, sizeof(char));
     EVP_EncryptUpdate(ctx, cipherBuf, &cipherBufLen, curBuf, curBufLen);
-    fprintf(stderr, "cipherBufLen : %i \n", cipherBufLen);
     int writeRet = write(curFdOut, cipherBuf, cipherBufLen);
     if(writeRet != cipherBufLen){
         my_fprintf("Writing encrypted to file failed, please try again \n");
         my_free(cipherBuf);
-        EVP_CIPHER_CTX_cleanup(ctx);
+        EVP_CIPHER_CTX_free(ctx);
+        DBG_ORI_FN_CALLS("Exited", 0, "%i %s %s %i", curFdOut, curBuf, pwdKey, curBufLen);
+        DBG_RET("%i", 1);
         return 1;
     }
-    EVP_CIPHER_CTX_cleanup(ctx);
+    my_free(cipherBuf);
+    EVP_CIPHER_CTX_free(ctx);
+    DBG_ORI_FN_CALLS("Exited", 0, "%i %s %s %i", curFdOut, curBuf, pwdKey, curBufLen);
+    DBG_RET("%i", 0);
     return 0;
 }
 
-int decryptBuf(int curFdOut, unsigned char* curBuf, const unsigned char *pwdKey,int curBufLen){
-    printf("Decrypting Start with pwdKey: %s\n", pwdKey);
+int decryptBuf(int curFdOut, unsigned char* curBuf, const unsigned char *pwdKey,int curBufLen, int pageCounter){
+    DBG_ORI_FN_CALLS("Entered", 1, "%i %s %s %i", curFdOut, curBuf, pwdKey, curBufLen);
     int cipherBufLen = 0;
-    unsigned char iv = '0';
+    unsigned char iv[16] = {pageCounter};
     unsigned char* cipherBuf;
     EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
     if(ctx == NULL){
         my_fprintf("CTX init failed, please try again \n");
+        DBG_RET("%i", 1);
+        DBG_ORI_FN_CALLS("Exited", 0, "%i %s %s %i", curFdOut, curBuf, pwdKey, curBufLen);
         return 1;
     }
-    EVP_DecryptInit_ex(ctx, EVP_aes_256_ctr(), NULL, pwdKey, &iv);
+    if(EVP_DecryptInit_ex(ctx, EVP_aes_256_ctr(), NULL, pwdKey, iv) != 1){
+        my_fprintf("EVP_DecryptInit_ex failed, please try again \n");
+        DBG_RET("%i", 1);
+        DBG_ORI_FN_CALLS("Exited", 0, "%i %s %s %i", curFdOut, curBuf, pwdKey, curBufLen);
+        return 1;
+    }
     cipherBuf = (unsigned char*)my_calloc(curBufLen, sizeof(char));
     EVP_DecryptUpdate(ctx, cipherBuf, &cipherBufLen, curBuf, curBufLen);
-    fprintf(stderr, "cipherBuf: %i \n", cipherBufLen);
     int writeRet = write(curFdOut, cipherBuf, cipherBufLen);
     if(writeRet != cipherBufLen){
         my_fprintf("Writing encrypted to file failed, please try again \n");
         my_free(cipherBuf);
-        EVP_CIPHER_CTX_cleanup(ctx);
+        EVP_CIPHER_CTX_free(ctx);
+        DBG_RET("%i", 1);
+        DBG_ORI_FN_CALLS("Exited", 0, "%i %s %s %i", curFdOut, curBuf, pwdKey, curBufLen);
         return 1;
     }
-    EVP_CIPHER_CTX_cleanup(ctx);
+    my_free(cipherBuf);
+    EVP_CIPHER_CTX_free(ctx);
+    DBG_RET("%i", 1);
+    DBG_ORI_FN_CALLS("Exited", 0, "%i %s %s %i", curFdOut, curBuf, pwdKey, curBufLen);
     return 0;
 }
 
